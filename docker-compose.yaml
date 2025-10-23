@@ -1,0 +1,89 @@
+version: "2.4"
+services:
+  api:
+    container_name: evolution_api
+    image: evoapicloud/evolution-api:latest
+    restart: always
+    depends_on:
+      redis:
+        condition: service_started
+      evolution-postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - evolution-net
+    env_file:
+      - .env
+    expose:
+      - "8080"
+  frontend:
+    container_name: evolution_frontend
+    image: evoapicloud/evolution-manager:latest
+    restart: always
+    ports:
+      - "3000:80"
+    networks:
+      - evolution-net
+    # Patch nginx config on container start to avoid "must-revalidate" invalid value, then start nginx.
+    command: >
+      /bin/sh -c "if [ -f /etc/nginx/conf.d/nginx.conf ]; then sed -i \"s/must-revalidate/no-cache, must-revalidate/g\" /etc/nginx/conf.d/nginx.conf; fi && nginx -g 'daemon off;'"
+
+  redis:
+    container_name: evolution_redis
+    image: redis:latest
+    restart: always
+    command: >
+      redis-server --port 6379 --appendonly yes
+    volumes:
+      - evolution_redis:/data
+    networks:
+      evolution-net:
+        aliases:
+          - evolution-redis
+    expose:
+      - "6379"
+
+  evolution-postgres:
+    container_name: evolution_postgres
+    image: postgres:15
+    restart: always
+    env_file:
+      - .env
+    command:
+      - postgres
+      - -c
+      - max_connections=1000
+      - -c
+      - listen_addresses=*
+    environment:
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - evolution-net
+    expose:
+      - "5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USERNAME} -d ${POSTGRES_DATABASE} -p 5432",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  evolution_instances:
+  evolution_redis:
+  postgres_data:
+
+networks:
+  evolution-net:
+    name: evolution-net
+    driver: bridge
