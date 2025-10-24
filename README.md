@@ -10,7 +10,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/alonsojj/BellyCountBot">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <img src="images/logo.png" alt="Logo" width="100" height="100">
   </a>
 
 <h3 align="center">Belly Count Bot</h3>
@@ -292,21 +292,8 @@ Once the server is running, access the interactive API documentation:
 
 ### Main Endpoints
 
-#### Transactions
-- `POST /api/v1/transactions` - Create new transaction
-- `GET /api/v1/transactions` - List all transactions
-- `GET /api/v1/transactions/{id}` - Get specific transaction
-- `PUT /api/v1/transactions/{id}` - Update transaction
-- `DELETE /api/v1/transactions/{id}` - Delete transaction
-
-#### Reports
-- `GET /api/v1/reports/monthly` - Generate monthly report
-- `GET /api/v1/reports/yearly` - Generate yearly report
-- `GET /api/v1/reports/category` - Report by category
-- `POST /api/v1/reports/export` - Export to Excel/PDF
-
 #### Webhook
-- `POST /webhook/whatsapp` - Evolution API webhook endpoint
+- `POST /webhook` - Evolution API webhook endpoint
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -366,7 +353,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 ## Contact
 
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - your_email@email.com
+your_email@email.com
 
 Project Link: [https://github.com/alonsojj/BellyCountBot](https://github.com/alonsojj/BellyCountBot)
 
