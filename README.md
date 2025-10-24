@@ -183,7 +183,7 @@ Ensure you have the following installed:
 
 5. **Start the FastAPI server**
    ```bash
-   uvx fastapi app/main.py
+    fastapi run app/main.py
    ```
 
 6. **Configure WhatsApp connection**
@@ -335,6 +335,10 @@ ruff format app/
 
 # Lint code
 ruff lint app/
+
+# Start server
+docker compose up -d
+fastapi dev app/main.py
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -399,3 +403,4 @@ Project Link: [https://github.com/alonsojj/BellyCountBot](https://github.com/alo
 [Groq-url]: https://groq.com/
 [WhatsApp-badge]: https://img.shields.io/badge/WhatsApp-25D366?logo=whatsapp&logoColor=white&style=for-the-badge
 [WhatsApp-url]: https://www.whatsapp.com/
+
