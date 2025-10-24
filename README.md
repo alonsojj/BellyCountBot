@@ -64,7 +64,7 @@
 
 
 - 🤖 **AI-Powered Conversations** - Natural language processing via Meta's Llama models through Groq
-- 📧 **Email Reports** - Automated monthly/weekly financial reports sent to your inbox
+- 📧 **Email Reports** - Automated reports sent to your inbox
 - 💾 **Secure Database** - All data stored securely in PostgreSQL
 - 📱 **WhatsApp Native** - Works seamlessly through Evolution API integration
 
