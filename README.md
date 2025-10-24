@@ -16,7 +16,7 @@
 <h3 align="center">Belly Count Bot</h3>
 
   <p align="center">
-    AI-powered WhatsApp bot for automated accounting and financial management
+    AI-powered WhatsApp bot for automate customer service focused on accounting firms
     <br />
     <a href="https://github.com/alonsojj/BellyCountBot"><strong>Explore the docs »</strong></a>
     <br />
@@ -174,10 +174,6 @@ Ensure you have the following installed:
    API_RELOAD=true
    DEBUG=false
    SECRET_KEY=your_secret_key_here_generate_with_openssl
-   
-   # Application Settings
-   DEFAULT_CURRENCY=USD
-   TIMEZONE=America/New_York
    ```
 
 4. **Start PostgreSQL and Evolution API containers**
