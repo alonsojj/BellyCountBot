@@ -1,3 +1,3 @@
-from .messenger import send_text
+from .messenger_service import Messenger
 
-__all__ = ["send_text"]
+__all__ = ["Messenger"]

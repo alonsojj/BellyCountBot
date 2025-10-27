@@ -1,3 +1,3 @@
-from .webhook_models import WebhookPayload
+from .webhook_model import WebhookPayload
 
 __all__ = ["WebhookPayload"]

@@ -15,23 +15,6 @@ class ConfigError(Exception):
     pass
 
 
-def _get_env(name: str) -> str:
-    v = os.getenv(name)
-    if not v:
-        raise ConfigError(f"Environment variable {name} is required")
-    return v
-
-
-_messenger: Optional["Messenger"] = None
-
-
-def get_messenger() -> "Messenger":
-    global _messenger
-    if _messenger is None:
-        _messenger = Messenger()
-    return _messenger
-
-
 class Messenger:
     def __init__(
         self,
@@ -96,21 +79,3 @@ class Messenger:
 
         return resp.json()
 
-
-def send_text(
-    number: str,
-    text: str,
-    delay: Optional[int] = None,
-    link_preview: bool = False,
-    timeout: int = 10,
-    instance_id: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Send text using global messenger instance"""
-    return get_messenger().send_text(
-        number=number,
-        text=text,
-        delay=delay,
-        link_preview=link_preview,
-        timeout=timeout,
-        instance_id=instance_id,
-    )
