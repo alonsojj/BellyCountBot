@@ -29,21 +29,21 @@ class WebhookPayload(BaseModel):
     date_time: str
 
     @property
+    def is_me(self) -> Optional[str]:
+        """Return if you were the one who sent the message"""
+        return self.data.key.fromMe
+
+    @property
     def user_message(self) -> Optional[str]:
-        """Extrai a mensagem de texto"""
+        """Extract the text message"""
         msg = self.data.message
         if not msg:
             return None
         return msg.conversation
 
     @property
-    def user_name(self) -> str:
-        """Retorna o nome do usuário"""
-        return self.data.pushName or "Usuário"
-
-    @property
-    def number(self) -> Optional[str]:
-        """Extrai o número do usuário (apenas dígitos)"""
+    def user_id(self) -> Optional[str]:
+        """Extract only the phone number"""
         key = self.data.key
         jid = key.remoteJid or self.sender
         if not jid:
