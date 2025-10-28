@@ -11,11 +11,7 @@ except Exception:
 import requests
 
 
-class ConfigError(Exception):
-    pass
-
-
-class Messenger:
+class WhatsAppService:
     def __init__(
         self,
         server_url: Optional[str] = None,
@@ -52,10 +48,10 @@ class Messenger:
         self,
         number: str,
         text: str,
+        instance_id: Optional[str] = None,
         delay: Optional[int] = None,
         link_preview: bool = False,
         timeout: int = 10,
-        instance_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "number": number,
@@ -79,3 +75,6 @@ class Messenger:
 
         return resp.json()
 
+
+class ConfigError(Exception):
+    pass
