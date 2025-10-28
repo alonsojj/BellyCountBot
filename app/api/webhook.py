@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import ValidationError
 from app.models import WebhookPayload
-from app.services import ChatbotService
-from app.services import WhatsAppService
-from app.services import AccessControlService
-from ..dependencies import (
+from app.services import WhatsAppService, ChatbotService, AccessControlService
+from app.dependencies import (
     get_chatbot_service,
     get_whatsapp_service,
     get_access_control_service,
