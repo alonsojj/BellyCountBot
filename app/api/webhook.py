@@ -1,22 +1,40 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import ValidationError
-from ..models import WebhookPayload
-from ..services import Messenger
+from app.models import WebhookPayload
+from app.services import ChatbotService
+from app.services import WhatsAppService
+from app.services import AccessControlService
+from ..dependencies import (
+    get_chatbot_service,
+    get_whatsapp_service,
+    get_access_control_service,
+)
 
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
-_messenger = Messenger()
+
+
 @router.post("/")
-async def receive_webhook(request: Request):
+async def receive_webhook(
+    request: Request,
+    chatbot_service: ChatbotService = Depends(get_chatbot_service),
+    whatsapp_service: WhatsAppService = Depends(get_whatsapp_service),
+    acces_control_service: AccessControlService = Depends(get_access_control_service),
+):
     data = await request.json()
+    print(data)
     try:
         payload = WebhookPayload(**data)
     except ValidationError as e:
         print("Erro", e)
         raise HTTPException(status_code=422, detail=e.errors())
+    if not (acces_control_service.is_allowed(payload.user_id) and not payload.is_me):
+        return {"status": "ok"}
 
-    try:
-        _messenger.send_text(payload.number, "Bem-vindo", instance_id=payload.instance)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    response_text = chatbot_service.process_message(
+        payload.user_id, payload.user_message
+    )
+
+    if response_text:
+        whatsapp_service.send_text(payload.user_id, response_text, payload.instance)
 
     return {"status": "ok"}
