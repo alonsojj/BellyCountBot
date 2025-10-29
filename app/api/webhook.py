@@ -25,7 +25,7 @@ async def receive_webhook(
     except ValidationError as e:
         print("Erro", e)
         raise HTTPException(status_code=422, detail=e.errors())
-    if not (acces_control_service.is_allowed(payload.user_id) and not payload.is_me):
+    if not (acces_control_service.is_allowed(payload.user_id) and not payload.is_me and not payload.is_group):
         return {"status": "ok"}
 
     response_text = chatbot_service.process_message(

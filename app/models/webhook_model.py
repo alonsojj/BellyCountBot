@@ -29,6 +29,12 @@ class WebhookPayload(BaseModel):
     date_time: str
 
     @property
+    def is_group(self) -> bool:
+        """Return if the message is from a group"""
+        jid = self.data.key.remoteJid or self.sender
+        return "@g.us" in jid
+
+    @property
     def is_me(self) -> Optional[str]:
         """Return if you were the one who sent the message"""
         return self.data.key.fromMe
