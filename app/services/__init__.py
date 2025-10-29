@@ -1,5 +1,6 @@
 from .whatsapp_service import WhatsAppService
 from .chatbot_service import ChatbotService
 from .access_control_service import AccessControlService
+from .ia_service import IaService
 
-__all__ = ["WhatsAppService", "ChatbotService", "AccessControlService"]
+__all__ = ["WhatsAppService", "ChatbotService", "AccessControlService", "IaService"]

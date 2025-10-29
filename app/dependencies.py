@@ -2,9 +2,11 @@ from app.services import (
     ChatbotService,
     WhatsAppService,
     AccessControlService,
+    IaService,
 )
 
-chatbot_service_instance = ChatbotService()
+ia_service_instance = IaService()
+chatbot_service_instance = ChatbotService(ia_service_instance)
 whatsapp_service_instance = WhatsAppService()
 access_control_service_instance = AccessControlService()
 
