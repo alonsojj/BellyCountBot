@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from .api import webhook
-from .api import access_control_router
+from .api import admin
+
 
 app = FastAPI(title="BellyCountBot")
 
-app.include_router(webhook.router)
-app.include_router(access_control_router.router)
+app.include_router(webhook.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")

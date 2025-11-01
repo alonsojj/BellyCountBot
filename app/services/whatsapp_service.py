@@ -1,13 +1,5 @@
-import os
+from app.core.settings import get_settings
 from typing import Any, Dict, Optional
-
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except Exception:
-    pass
-
 import requests
 
 
@@ -18,11 +10,10 @@ class WhatsAppService:
         instance_id: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> None:
-        self.server_url = server_url or os.getenv("SERVER_URL")
-        self.instance_id = instance_id or os.getenv("INSTANCE_ID")
-        self.api_key = (
-            api_key or os.getenv("API_KEY") or os.getenv("AUTHENTICATION_API_KEY")
-        )
+        settings = get_settings()
+        self.server_url = server_url or settings.SERVER_URL
+        self.instance_id = instance_id or settings.INSTANCE_ID
+        self.api_key = api_key or settings.AUTHENTICATION_API_KEY
 
         if not self.server_url or not self.api_key:
             raise ConfigError(

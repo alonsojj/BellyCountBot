@@ -1,12 +1,13 @@
-import os
-import re
+from app.core.settings import get_settings
+from app.models.enums import AccessOption
 from pathlib import Path
-from ..models.enums import AccessOption
+import re
 
 
-class AccessControlService:
+class AdminService:
     def __init__(self):
-        mode_str = os.getenv("ACCESS_CONTROL_MODE", "DISABLE").upper()
+        settings = get_settings()
+        mode_str = settings.ACCESS_CONTROL_MODE.upper()
         try:
             self.mode = AccessOption[mode_str]
         except KeyError:
@@ -43,7 +44,12 @@ class AccessControlService:
         return True
 
     def is_valid_number(self, user_id: str) -> bool:
-        return bool(re.match(r"^55(?:[14689][1-9]|2[12478]|3[1234578]|5[1345]|7[134579])(?:9[0-9]{8}|[2-8][0-9]{7})$", user_id))
+        return bool(
+            re.match(
+                r"^55(?:[14689][1-9]|2[12478]|3[1234578]|5[1345]|7[134579])(?:9[0-9]{8}|[2-8][0-9]{7})$",
+                user_id,
+            )
+        )
 
     def _add_to_list(self, user_ids: list[str], target_list: set, filename: str):
         for user_id in user_ids:

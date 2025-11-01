@@ -1,14 +1,12 @@
-import os
+from app.core.settings import get_settings
 from groq import Groq
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 class IaService:
     def __init__(self):
         try:
-            self.api_key = os.getenv("GROQ_API_KEY")
+            settings = get_settings()
+            self.api_key = settings.GROQ_API_KEY
             if not self.api_key:
                 raise ValueError("GROQ_API_KEY não encontrada no arquivo .env")
 

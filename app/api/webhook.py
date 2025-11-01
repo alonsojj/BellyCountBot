@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import ValidationError
 from app.models import WebhookPayload
-from app.services import WhatsAppService, ChatbotService, AccessControlService
-from app.dependencies import (
+from app.services import WhatsAppService, ChatbotService, AdminService
+from app.core.dependencies import (
     get_chatbot_service,
     get_whatsapp_service,
-    get_access_control_service,
+    get_admin_service,
 )
 
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
@@ -16,7 +16,7 @@ async def receive_webhook(
     request: Request,
     chatbot_service: ChatbotService = Depends(get_chatbot_service),
     whatsapp_service: WhatsAppService = Depends(get_whatsapp_service),
-    acces_control_service: AccessControlService = Depends(get_access_control_service),
+    acces_control_service: AdminService = Depends(get_admin_service),
 ):
     data = await request.json()
     print(data)

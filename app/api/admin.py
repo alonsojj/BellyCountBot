@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.admin_model import UserId, UserIds, SetMode
-from app.services import AccessControlService
-from app.dependencies import get_access_control_service
-from app.auth import verify_credentials
+from app.services import AdminService
+from app.core.dependencies import get_admin_service
+from app.core.auth import verify_credentials
 
 router = APIRouter(
     prefix="/admin", tags=["admin"], dependencies=[Depends(verify_credentials)]
@@ -10,13 +10,13 @@ router = APIRouter(
 
 
 @router.get("/whitelist", response_model=list[str])
-def get_whitelist(service: AccessControlService = Depends(get_access_control_service)):
+def get_whitelist(service: AdminService = Depends(get_admin_service)):
     return list(service.get_whitelist())
 
 
 @router.post("/whitelist")
 async def add_to_whitelist(
-    users: UserIds, service: AccessControlService = Depends(get_access_control_service)
+    users: UserIds, service: AdminService = Depends(get_admin_service)
 ):
     try:
         service.add_to_whitelist(users.user_ids)
@@ -27,7 +27,7 @@ async def add_to_whitelist(
 
 @router.delete("/whitelist")
 def remove_from_whitelist(
-    user_id: UserId, service: AccessControlService = Depends(get_access_control_service)
+    user_id: UserId, service: AdminService = Depends(get_admin_service)
 ):
     try:
         service.remove_from_whitelist(user_id.user_id)
@@ -37,13 +37,13 @@ def remove_from_whitelist(
 
 
 @router.get("/blacklist", response_model=list[str])
-def get_blacklist(service: AccessControlService = Depends(get_access_control_service)):
+def get_blacklist(service: AdminService = Depends(get_admin_service)):
     return list(service.get_blacklist())
 
 
 @router.post("/blacklist")
 async def add_to_blacklist(
-    users: UserIds, service: AccessControlService = Depends(get_access_control_service)
+    users: UserIds, service: AdminService = Depends(get_admin_service)
 ):
     try:
         service.add_to_blacklist(users.user_ids)
@@ -54,7 +54,7 @@ async def add_to_blacklist(
 
 @router.delete("/blacklist")
 def remove_from_blacklist(
-    user_id: UserId, service: AccessControlService = Depends(get_access_control_service)
+    user_id: UserId, service: AdminService = Depends(get_admin_service)
 ):
     try:
         service.remove_from_blacklist(user_id.user_id)
@@ -64,13 +64,13 @@ def remove_from_blacklist(
 
 
 @router.get("/mode", response_model=str)
-def get_mode(service: AccessControlService = Depends(get_access_control_service)):
+def get_mode(service: AdminService = Depends(get_admin_service)):
     return service.mode.name
 
 
 @router.post("/mode")
 def set_mode(
-    mode: SetMode, service: AccessControlService = Depends(get_access_control_service)
+    mode: SetMode, service: AdminService = Depends(get_admin_service)
 ):
     try:
         service.set_mode(mode.mode)
