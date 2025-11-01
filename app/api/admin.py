@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-from ..services.access_control_service import AccessControlService
-from ..dependencies import get_access_control_service
-from ..models.access_control_model import UserId, UserIds, SetMode
+from app.models.admin_model import UserId, UserIds, SetMode
+from app.services import AccessControlService
+from app.dependencies import get_access_control_service
+from app.auth import verify_credentials
 
-router = APIRouter(prefix="/api/v1/access-control", tags=["Access Control"])
+router = APIRouter(
+    prefix="/admin", tags=["admin"], dependencies=[Depends(verify_credentials)]
+)
 
 
 @router.get("/whitelist", response_model=list[str])
@@ -12,13 +15,12 @@ def get_whitelist(service: AccessControlService = Depends(get_access_control_ser
 
 
 @router.post("/whitelist")
-def add_to_whitelist(
-    user_ids: UserIds,
-    service: AccessControlService = Depends(get_access_control_service),
+async def add_to_whitelist(
+    users: UserIds, service: AccessControlService = Depends(get_access_control_service)
 ):
     try:
-        service.add_to_whitelist(user_ids.user_ids)
-        return {"message": "User(s) added to whitelist"}
+        service.add_to_whitelist(users.user_ids)
+        return {"status": "ok", "message": "User(s) added to whitelist"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -29,7 +31,7 @@ def remove_from_whitelist(
 ):
     try:
         service.remove_from_whitelist(user_id.user_id)
-        return {"message": "User removed from whitelist"}
+        return {"status": "ok", "message": "User removed from whitelist"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -40,13 +42,12 @@ def get_blacklist(service: AccessControlService = Depends(get_access_control_ser
 
 
 @router.post("/blacklist")
-def add_to_blacklist(
-    user_ids: UserIds,
-    service: AccessControlService = Depends(get_access_control_service),
+async def add_to_blacklist(
+    users: UserIds, service: AccessControlService = Depends(get_access_control_service)
 ):
     try:
-        service.add_to_blacklist(user_ids.user_ids)
-        return {"message": "User(s) added to blacklist"}
+        service.add_to_blacklist(users.user_ids)
+        return {"status": "ok", "message": "User(s) added to blacklist"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
