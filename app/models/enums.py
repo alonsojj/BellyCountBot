@@ -17,3 +17,9 @@ class AccountingService(Enum):
 class DocumentType(Enum):
     CPF = "CPF"
     CNPJ = "CNPJ"
+
+
+class AccessOption(str, Enum):
+    WHITELIST = "WHITELIST"
+    BLACKLIST = "BLACKLIST"
+    DISABLE = "DISABLE"
