@@ -3,6 +3,7 @@ import re
 from app.models import Client
 from app.models.enums import ConversationState, DocumentType, AccountingService
 from app.services.ia_service import IaService
+from app.services.email_service import send_email
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -437,7 +438,7 @@ class ChatbotService:
         resumo = f"Cliente: {session.client.name or 'Novo Cliente'}, Motivo: {motivo}, Documento: {session.client.document_number or 'N/A'}"
 
         logging.info(f"Direcionamento para humano acionado: {resumo}")
-
+        send_email(resumo)
         return (
             "Entendido! Já estou chamando um de nossos especialistas para falar com você.\n\n"
             f"Eles receberão o seguinte resumo: *{motivo}*\n\n"
