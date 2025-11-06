@@ -4,6 +4,7 @@ from typing import Optional
 
 class MessageKey(BaseModel):
     remoteJid: str
+    remoteJidAlt: Optional[str] = None
     fromMe: bool
     id: str
     participant: Optional[str] = ""
@@ -51,7 +52,13 @@ class WebhookPayload(BaseModel):
     def user_id(self) -> Optional[str]:
         """Extract only the phone number"""
         key = self.data.key
+
         jid = key.remoteJid or self.sender
+
+        if "@lid" in jid:
+            jid = key.remoteJidAlt or jid
+
         if not jid:
             return None
-        return jid.split("@", 1)[0]
+
+        return jid.split("@")[0].strip()

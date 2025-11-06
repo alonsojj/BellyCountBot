@@ -1,7 +1,6 @@
 # importações
 import smtplib
 from email.message import EmailMessage
-import mimetypes
 
 
 from app.core.settings import get_settings

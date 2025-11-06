@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     BOT_USERNAME: str
     BOT_PASSWORD: str
     ACCESS_CONTROL_MODE: str = "DISABLE"
+    EMAIL_SENDER_ADDRESS: str
+    EMAIL_SENDER_PASSWORD: str
 
     class Config:
         env_file = ".env"
