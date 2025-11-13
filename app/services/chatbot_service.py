@@ -1,9 +1,16 @@
 import logging
 import re
+import asyncio
+from typing import Union, Optional
 from app.models import Client
 from app.models.enums import ConversationState, DocumentType, AccountingService
 from app.services.ia_service import IaService
 from app.services.email_service import send_email
+from app.services.document_service import (
+    validar_cpf,
+    consultar_cnpj_empresa,
+    CNPJData,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -80,7 +87,7 @@ class ChatbotService:
             session.previous_state = session.state
         session.state = new_state
 
-    def process_message(self, user_id: str, user_message: str) -> str:
+    async def process_message(self, user_id: str, user_message: str) -> str:
         """
         Processa a mensagem do usuário, registra o histórico e usa o dispatcher de estados.
         """
@@ -94,7 +101,11 @@ class ChatbotService:
             handler = self.state_handlers.get(session.state)
 
             if handler:
-                response = handler(session, user_message)
+                # Await async handlers
+                if asyncio.iscoroutinefunction(handler):
+                    response = await handler(session, user_message)
+                else:
+                    response = handler(session, user_message)
             else:
                 logging.error(
                     f"Nenhum handler encontrado para o estado: {session.state}"
@@ -132,47 +143,48 @@ class ChatbotService:
                 session, f"Usuário não escolheu opção e disse: '{user_message}'"
             )
 
-    def _handle_aguardando_cpf_cnpj(
+    async def _handle_aguardando_cpf_cnpj(
         self, session: UserSession, user_message: str
     ) -> str:
-        doc = re.sub(r"[^\d]", "", user_message)
-
+        doc = re.sub(r"\D", "", user_message or "")
         if len(doc) == 11:
-            session.client.document_type = DocumentType.CPF
-            session.client.document_number = doc
-            if not self._validar_cpf(doc):
-                logging.warning(f"CPF inválido fornecido: {doc}")
+            if validar_cpf(doc):
+                session.client.document_type = DocumentType.CPF
+                session.client.document_number = doc
+                self._set_state(session, ConversationState.AGUARDANDO_NOME_PJ)
+                return "CPF validado. Por favor, digite seu nome completo para prosseguirmos.\n\n*(Digite 'Voltar' para o menu principal)*"
+        if len(doc) == 14:
+            dados = await self._buscar_dados_documento(session, doc)
+            print(dados)
+            if dados and dados.sucesso:
+                session.client.document_type = DocumentType.CNPJ
+                session.client.document_number = doc
+                company_name = None
+                if dados.razao_social:
+                    company_name = dados.razao_social
+                elif dados.nome_fantasia:
+                    company_name = dados.nome_fantasia
+                print(dados)
+                if company_name:
+                    session.client.name = company_name
+                    print(session.client.name, company_name, dados.razao_social)
+                    response = f"Olá! Encontrei o cadastro da empresa: {session.client.name}.\n\n"
+                else:
+                    response = "Não localizei a razão social ou nome fantasia, mas pode ser um erro no sistema. Vamos prosseguir.\n\n"
 
-            dados = self._buscar_dados_documento(doc)
-            if dados and dados.get("nome"):
-                session.client.name = dados["nome"]
-                response = f"Olá, {session.client.name}! Cadastro localizado.\n\n"
-            else:
-                response = "Não localizei seu nome, mas pode ser um erro no sistema. Vamos prosseguir.\n\n"
-
-            self._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF)
-            return response + self._menu_servicos_pf(session)
-
-        elif len(doc) == 14:
-            session.client.document_type = DocumentType.CNPJ
-            session.client.document_number = doc
-            if not self._validar_cnpj(doc):
-                logging.warning(f"CNPJ inválido fornecido: {doc}")
-
-            dados = self._buscar_dados_documento(doc)
-            if dados and dados.get("nome"):
-                session.client.name = dados["nome"]
-                response = (
-                    f"Olá! Encontrei o cadastro da empresa: {session.client.name}.\n\n"
+                self._set_state(
+                    session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ
                 )
-            else:
-                response = "Não localizei a razão social, mas pode ser um erro no sistema. Vamos prosseguir.\n\n"
-
-            self._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ)
-            return response + self._menu_servicos_pj(session)
-
+                return response + self._menu_servicos_pj(session)
         else:
             return "Número de documento inválido. Por favor, digite um CPF (11 números) ou CNPJ (14 números).\n\n*(Digite 'Voltar' para o menu principal)*"
+
+    async def _handle_aguardando_nome_pj(
+        self, session: UserSession, user_message: str
+    ) -> str:
+        session.client.name = user_message.strip()
+        self._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ)
+        return f"Obrigado, {session.client.name}! Agora, por favor, escolha o serviço desejado:\n\n" + self._menu_servicos_pj(session)
 
     def _handle_aguardando_escolha_servico_pf(
         self, session: UserSession, user_message: str
@@ -241,7 +253,7 @@ class ChatbotService:
                 "Desculpe, não consegui identificar um serviço específico para sua necessidade. Estou te encaminhando para um de nossos especialistas para te ajudar melhor.\n\n"
                 + self._enviar_para_atendente_humano(
                     session,
-                    f"Falha na classificação da IA.",
+                    "Falha na classificação da IA.",
                 )
             )
 
@@ -422,16 +434,12 @@ class ChatbotService:
             "*(Digite o número da opção ou 'Voltar')*"
         )
 
-    # --- Placeholders para Integração com Backend/DB ---
+    # --- Placeholders para Integração com DB e outros services ---
 
-    def _validar_cpf(self, cpf: str) -> bool:
-        return True
-
-    def _validar_cnpj(self, cnpj: str) -> bool:
-        return True
-
-    def _buscar_dados_documento(self, documento: str) -> dict:
-        return None
+    async def _buscar_dados_documento(
+        self, session: UserSession, documento: str
+    ) -> Optional[CNPJData]:
+        return await consultar_cnpj_empresa(documento)
 
     def _enviar_para_atendente_humano(self, session: UserSession, motivo: str) -> str:
         self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
