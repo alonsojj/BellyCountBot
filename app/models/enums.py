@@ -29,6 +29,7 @@ class ConversationState(Enum):
 
     # --- Estágios Finais ---
     ATENDIMENTO_HUMANO = auto()  # Estágio final. O bot para de responder.
+    HUMAN_ATTENDING = auto()  # Um humano está ativamente conversando com o cliente.
 
 
 # Enum completo com todos os serviços do fluxograma

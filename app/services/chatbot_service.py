@@ -1,6 +1,7 @@
 import logging
 import re
 import asyncio
+from datetime import datetime
 from typing import Optional
 from app.models import Client
 from app.models.enums import ConversationState, DocumentType, AccountingService
@@ -28,6 +29,8 @@ class UserSession:
         self.previous_state = ConversationState.GREETING
         self.chat_history = []
         self.ia_suggestion = None
+        self.last_activity_time = datetime.now()
+        self.whatsapp_instance = None
 
     def reset(self):
         """Reseta a sessão para o início."""
@@ -89,22 +92,34 @@ class ChatbotService:
             logging.info(f"Nova sessão criada para o usuário: {user_id}")
         return self.user_sessions[user_id]
 
+    def get_session_state(self, user_id: str) -> ConversationState:
+        """Retorna o estado atual da sessão de um usuário."""
+        session = self._get_session(user_id)
+        return session.state
+
     def _set_state(self, session: UserSession, new_state: ConversationState):
         """Define o novo estado e salva o anterior para a função 'Voltar'."""
         if session.state != new_state:
             session.previous_state = session.state
         session.state = new_state
 
-    async def process_message(self, user_id: str, user_message: str) -> str:
-        """
-        Processa a mensagem do usuário, registra o histórico e usa o dispatcher de estados.
-        """
+    async def process_message(
+        self, user_id: str, user_message: str, whatsapp_instance: Optional[str] = None
+    ) -> str:
         session = self._get_session(user_id)
+        session.last_activity_time = datetime.now()
+        if whatsapp_instance:
+            session.whatsapp_instance = whatsapp_instance
 
         session.chat_history.append({"role": "user", "content": user_message})
 
         if user_message.lower() == "voltar":
             response = self._handle_voltar(session)
+        elif session.state == ConversationState.HUMAN_ATTENDING:
+            # If a human is attending, all user messages are forwarded to the human.
+            # The response here is just an acknowledgement from the bot.
+            # The actual forwarding to the human agent will be handled by the webhook/whatsapp_service.
+            response = None
         else:
             handler = self.state_handlers.get(session.state)
 
@@ -121,8 +136,8 @@ class ChatbotService:
                 session.reset()
                 response = self._menu_inicial(session)
 
-        session.chat_history.append({"role": "assistant", "content": response})
-
+        if response:
+            session.chat_history.append({"role": "assistant", "content": response})
         return response
 
     # --- Handlers de Estado (Lógica de cada etapa da conversa) ---
@@ -316,7 +331,15 @@ class ChatbotService:
     def _handle_atendimento_humano(
         self, session: UserSession, user_message: str
     ) -> str:
-        return "Você já está na fila para o atendimento humano. Por favor, aguarde mais um momento que um especialista logo falará com você.\n\n*(Se desejar recomeçar do zero, digite 'Voltar')*"
+        if session.state == ConversationState.HUMAN_ATTENDING:
+            # If a human is already attending, just acknowledge and forward the message
+            # (The actual forwarding mechanism will be handled by the webhook/whatsapp_service)
+            return (
+                "Sua mensagem foi encaminhada ao especialista. Ele responderá em breve."
+            )
+        else:
+            # If still in ATENDIMENTO_HUMANO, the user is waiting
+            return "Você já está na fila para o atendimento humano. Por favor, aguarde mais um momento que um especialista logo falará com você.\n\n*(Se desejar recomeçar do zero, digite 'Voltar')*"
 
     def _handle_voltar(self, session: UserSession) -> str:
         """Lida com o comando 'voltar', retornando ao estado anterior."""
@@ -614,3 +637,30 @@ class ChatbotService:
             f"Eles receberão o seguinte resumo: *{motivo}*\n\n"
             "Por favor, aguarde que em breve alguém entrará em contato por aqui."
         )
+
+    def set_human_attending(self, user_id: str):
+        session = self._get_session(user_id)
+        session.last_activity_time = datetime.now()
+        if session.state != ConversationState.HUMAN_ATTENDING:
+            self._set_state(session, ConversationState.HUMAN_ATTENDING)
+            logging.info(f"Sessão do usuário {user_id} definida para HUMAN_ATTENDING.")
+
+    def check_inactivity_and_cleanup(self, inactivity_minutes: int) -> list[str]:
+        inactive_user_ids = []
+        current_time = datetime.now()
+        for user_id, session in list(self.user_sessions.items()):
+            if (
+                session.state != ConversationState.ATENDIMENTO_HUMANO
+                and (current_time - session.last_activity_time).total_seconds()
+                > inactivity_minutes * 60
+            ):
+                inactive_user_ids.append(session)
+                logging.info(
+                    f"Sessão do usuário {user_id} marcada como inativa. Estado: {session.state}"
+                )
+        return inactive_user_ids
+
+    def delete_session(self, user_id: str):
+        if user_id in self.user_sessions:
+            del self.user_sessions[user_id]
+            logging.info(f"Sessão do usuário {user_id} deletada.")

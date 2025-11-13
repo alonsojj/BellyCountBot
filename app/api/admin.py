@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.admin_model import UserId, UserIds, SetMode
-from app.services import AdminService
-from app.core.dependencies import get_admin_service
+from app.services import AdminService, ChatbotService
+from app.core.dependencies import get_admin_service, get_chatbot_service
 from app.core.auth import verify_credentials
 
 router = APIRouter(
@@ -77,3 +77,14 @@ def set_mode(
         return {"message": f"Mode set to {mode.mode.name}"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/session/{user_id}")
+def delete_user_session(
+    user_id: str, chatbot_service: ChatbotService = Depends(get_chatbot_service)
+):
+    if user_id not in chatbot_service.user_sessions:
+        raise HTTPException(status_code=404, detail=f"Session for user {user_id} not found.")
+    
+    chatbot_service.delete_session(user_id)
+    return {"status": "ok", "message": f"Session for user {user_id} deleted."}
