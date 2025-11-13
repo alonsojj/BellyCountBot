@@ -435,7 +435,17 @@ class ChatbotService:
 
     def _enviar_para_atendente_humano(self, session: UserSession, motivo: str) -> str:
         self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
-        resumo = f"Cliente: {session.client.name or 'Novo Cliente'}, Motivo: {motivo}, Documento: {session.client.document_number or 'N/A'}"
+
+        resumo = {
+            "cliente_nome": session.client.name or "Novo Cliente",
+            "cliente_email": session.client.email or "Não informado",
+            "cliente_telefone": session.client.phone or session.client.user_id,
+            "servico_nome": session.client.service.value
+            if session.client.service
+            else "Não especificado",
+            "cliente_mensagem": motivo,
+            "whatsapp_link": f"https://wa.me/{session.client.user_id}",  # Assuming user_id is a phone number
+        }
 
         logging.info(f"Direcionamento para humano acionado: {resumo}")
         send_email(resumo)

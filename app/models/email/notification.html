@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novo Contato de Cliente</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Georgia', 'Times New Roman', serif; background-color: #1a1a1a;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 10px 30px rgba(212, 166, 68, 0.3); border: 2px solid #D4A644;">
+                    <tr>
+                        <td style="padding: 50px 30px; text-align: center; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); border-bottom: 3px solid #D4A644;">
+                            <img src="cid:logo" alt="Logo" style="max-width: 120px; height: auto; display: block; margin: 0 auto; filter: drop-shadow(0 4px 8px rgba(212, 166, 68, 0.4));">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0; height: 4px; background: linear-gradient(90deg, #D4A644 0%, #F4E4B8 50%, #D4A644 100%);"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 30px 20px; text-align: center; background-color: #fafafa;">
+                            <h1 style="margin: 0; color: #1a1a1a; font-size: 28px; font-weight: bold; letter-spacing: 1px;">
+                                Novo Contato de Cliente
+                            </h1>
+                            <div style="width: 60px; height: 3px; background: linear-gradient(90deg, #D4A644, #F4E4B8); margin: 15px auto;"></div>
+                            <p style="margin: 10px 0 0; color: #666666; font-size: 15px; font-style: italic;">
+                                Um cliente entrou em contato através do chatbot.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; background-color: #ffffff;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%); border: 2px solid #D4A644; border-radius: 10px;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <div style="margin-bottom: 20px;">
+                                            <h2 style="margin: 0; color: #1a1a1a; font-size: 20px; letter-spacing: 1px; border-bottom: 2px solid #D4A644; display: inline-block; padding-bottom: 8px;">
+                                                DADOS DO CONTATO
+                                            </h2>
+                                        </div>
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                                            <tr>
+                                                <td style="padding: 12px 0; color: #D4A644; font-size: 14px; width: 130px; font-weight: bold; letter-spacing: 0.5px;">
+                                                    NOME:
+                                                </td>
+                                                <td style="padding: 12px 0; color: #1a1a1a; font-size: 15px; font-weight: 500;">
+                                                    {cliente_nome}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="2" style="height: 1px; background-color: #e0e0e0;"></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 12px 0; color: #D4A644; font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">
+                                                    EMAIL:
+                                                </td>
+                                                <td style="padding: 12px 0; color: #1a1a1a; font-size: 15px; font-weight: 500;">
+                                                    {cliente_email}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="2" style="height: 1px; background-color: #e0e0e0;"></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 12px 0; color: #D4A644; font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">
+                                                    TELEFONE:
+                                                </td>
+                                                <td style="padding: 12px 0; color: #1a1a1a; font-size: 15px; font-weight: 500;">
+                                                    {cliente_telefone}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0 30px 25px;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background: linear-gradient(135deg, #D4A644 0%, #C99635 100%); border-radius: 10px; box-shadow: 0 4px 12px rgba(212, 166, 68, 0.3);">
+                                <tr>
+                                    <td style="padding: 25px; text-align: center;">
+                                        <h3 style="margin: 0 0 12px; color: #1a1a1a; font-size: 16px; letter-spacing: 1.5px; font-weight: bold;">
+                                            SERVIÇO SOLICITADO
+                                        </h3>
+                                        <p style="margin: 0; color: #ffffff; font-size: 18px; line-height: 1.6; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                            {servico_nome}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0 30px 25px;">
+                            <div style="background-color: #fafafa; padding: 25px; border-radius: 10px; border-left: 5px solid #D4A644; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <h3 style="margin: 0 0 15px; color: #D4A644; font-size: 16px; letter-spacing: 1px; font-weight: bold;">
+                                    MENSAGEM
+                                </h3>
+                                <p style="margin: 0; color: #333333; font-size: 15px; line-height: 1.8; font-style: italic;">
+                                    "{cliente_mensagem}"
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px 30px; text-align: center; background-color: #fafafa;">
+                            <p style="margin: 0 0 20px; color: #666666; font-size: 15px;">
+                                Continue a conversa pelo WhatsApp:
+                            </p>
+                            <table role="presentation" style="margin: 0 auto;">
+                                <tr>
+                                    <td style="border-radius: 50px; background-color: #1a1a1a; padding: 0; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);">
+                                        <a href="{whatsapp_link}" target="_blank" style="display: inline-block; padding: 18px 45px; color: #D4A644; text-decoration: none; font-size: 16px; font-weight: bold; border-radius: 50px; letter-spacing: 0.5px; transition: all 0.3s;">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/1200px-WhatsApp.svg.png" alt="WhatsApp" width="20" height="20" style="vertical-align: middle; margin-right: 8px; filter: invert(1) brightness(1.5) sepia(1) hue-rotate(40deg) saturate(5);">
+                                            CONTINUAR NO WHATSAPP
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

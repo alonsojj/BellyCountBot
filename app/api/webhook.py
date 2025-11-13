@@ -25,9 +25,16 @@ async def receive_webhook(
     except ValidationError as e:
         print("Erro", e)
         raise HTTPException(status_code=422, detail=e.errors())
-    if not (acces_control_service.is_allowed(payload.user_id) and not payload.is_me and not payload.is_group):
+    if (
+        payload.is_me
+        or payload.is_group
+        or not acces_control_service.is_allowed(payload.user_id)
+    ):
         return {"status": "ok"}
-
+    if payload.data.messageType != "conversation":
+        response_text = "Desculpe, no momento só consigo processar mensagens de texto. Por favor, digite sua mensagem."
+        whatsapp_service.send_text(payload.user_id, response_text, payload.instance)
+        return {"status": "ok"}
     response_text = chatbot_service.process_message(
         payload.user_id, payload.user_message
     )

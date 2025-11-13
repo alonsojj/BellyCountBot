@@ -8,6 +8,8 @@ from .enums import DocumentType, AccountingService
 class Client:
     user_id: str
     name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
     document_type: Optional[DocumentType] = None
     document_number: Optional[str] = None
     service: Optional[AccountingService] = None
