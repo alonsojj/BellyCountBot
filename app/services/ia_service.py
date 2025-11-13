@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 from app.core.settings import get_settings
 from app.models.enums import ConversationState, AccountingService
 from groq import Groq
@@ -10,7 +11,8 @@ logging.basicConfig(
 
 
 class IaService:
-    def __init__(self):
+    def __init__(self, chatbot_service=None):
+        self.chatbot_service = chatbot_service
         try:
             settings = get_settings()
             self.api_key = settings.GROQ_API_KEY
@@ -40,13 +42,47 @@ class IaService:
             )
         elif stage == ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION:
             system_prompt = (
-                "Você é um classificador de serviços contábeis. Analise a conversa e a última mensagem do usuário "
-                "para identificar o serviço necessário. Retorne **apenas um objeto JSON**."
-                "\nO JSON deve ter duas chaves: 'service' e 'description'."
-                "\nA chave 'service' deve ser UMA das seguintes strings: "
+                "Você é um classificador de intenções. Analise a conversa e a última mensagem do usuário."
+                "\nSua tarefa é identificar se a intenção do usuário corresponde a uma das opções apresentadas na última mensagem do chatbot."
+                "\nRetorne **apenas um objeto JSON** com as chaves 'option', 'service' e 'description'."
+                "\n"
+            )
+
+            # Tenta encontrar a última mensagem do assistente para extrair as opções
+            last_assistant_message = None
+            # Iterate in reverse, excluding the very last message which is the current user's
+            for msg in reversed(chat_history[:-1]):
+                if msg["role"] == "assistant":
+                    last_assistant_message = msg["content"]
+                    break
+
+            if last_assistant_message:
+                # Extrai as opções numeradas da última mensagem do assistente
+                # This regex looks for lines starting with a number followed by a dot and a space
+                options_pattern = re.compile(r"^(\d+)\.\s(.+)$", re.MULTILINE)
+                numbered_options = options_pattern.findall(last_assistant_message)
+
+                if numbered_options:
+                    system_prompt += (
+                        "\nAs opções que o chatbot apresentou ao usuário são:\n"
+                    )
+                    for num, desc in numbered_options:
+                        system_prompt += f"- {num}. {desc}\n"
+                    system_prompt += (
+                        "\nCom base na última mensagem do usuário e nas opções acima, se a intenção do usuário corresponder a uma dessas opções, "
+                        "retorne o *número* da opção (ex: '1', '2', '3') na chave 'option'."
+                        "\nCaso contrário, a chave 'option' deve ser 'None'."
+                    )
+                else:
+                    system_prompt += "\nNão foram encontradas opções numeradas na última mensagem do chatbot. Apenas classifique o serviço."
+            else:
+                system_prompt += "\nNão foi encontrada uma mensagem anterior do chatbot com opções. Apenas classifique o serviço."
+
+            system_prompt += (
+                "\nSe a chave 'option' for 'None', então a chave 'service' deve ser UMA das seguintes strings: "
                 f"'[{', '.join([s.value for s in AccountingService if 'PLANEJAMENTO_' not in s.value])}]'. "
                 "A chave 'description' deve ser uma explicação curta (1-2 frases) sobre o serviço identificado."
-                "\nSe o problema não se encaixar em nenhum, use o serviço 'OUTRO'."
+                "\nSe o problema não se encaixar em nenhum serviço, use o serviço 'OUTRO' para a chave 'service'."
             )
         else:
             system_prompt = "Você é um assistente de contabilidade."
@@ -66,7 +102,7 @@ class IaService:
         # Pega a última mensagem do usuário
         last_user_message = chat_history[-1]["content"]
         full_prompt.append(
-            f"Baseado no contexto acima, processe a ÚLTIMA MENSAGEM DO USUÁRIO:"
+            "Baseado no contexto acima, processe a ÚLTIMA MENSAGEM DO USUÁRIO:"
         )
         full_prompt.append(f"Usuário: {last_user_message}")
 
@@ -78,6 +114,7 @@ class IaService:
         """
         if not self.client:
             logging.error("IA não pode responder: Cliente Groq não inicializado.")
+            logging.debug("handle_ai_request returning from client not initialized.")
             return {
                 "status": "fail",
                 "content": "Desculpe, nosso serviço de IA está temporariamente indisponível.",
@@ -85,6 +122,7 @@ class IaService:
 
         # Constrói o prompt contextual
         prompt = self._build_prompt(chat_history, stage)
+        logging.debug(f"Prompt built: {prompt}")
 
         messages_to_send = [{"role": "user", "content": prompt}]
 
@@ -103,19 +141,23 @@ class IaService:
                 parsed_json = json.loads(response_content)
                 service = parsed_json.get("service")
                 description = parsed_json.get("description")
+                option = parsed_json.get("option")
 
-                if service not in [s.value for s in AccountingService]:
+                if option is None and service not in [s.value for s in AccountingService] and service != "OUTRO":
                     logging.warning(f"IA retornou serviço inválido: {service}")
+                    logging.debug("handle_ai_request returning from invalid service.")
                     return {
                         "status": "fail",
                         "content": "Não consegui identificar o serviço.",
                     }
 
+                logging.debug("handle_ai_request returning classification success.")
                 return {
                     "status": "success",
                     "type": "classification",
                     "service": service,
                     "description": description,
+                    "option": option
                 }
 
             else:
@@ -124,6 +166,7 @@ class IaService:
                     model="llama-3.3-70b-versatile",
                 )
                 response_content = chat_completion.choices[0].message.content
+                logging.debug("handle_ai_request returning answer success.")
                 return {
                     "status": "success",
                     "type": "answer",
@@ -133,6 +176,7 @@ class IaService:
 
         except Exception as e:
             logging.error(f"Erro ao se comunicar com a API da Groq: {e}")
+            logging.debug("handle_ai_request returning from exception.")
             return {
                 "status": "fail",
                 "content": "Ocorreu um erro ao tentar processar sua mensagem.",
