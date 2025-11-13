@@ -39,6 +39,13 @@ class UserSession:
 
 
 class ChatbotService:
+    def _get_service_type(self, service: AccountingService) -> str:
+        """Determina se um serviço é para Pessoa Física (PF) ou Pessoa Jurídica (PJ)."""
+        pf_services = [AccountingService.IMPOSTO_RENDA_PF]
+        if service in pf_services:
+            return "PF"
+        return "PJ"
+
     def __init__(self, ia: IaService):
         self.user_sessions = {}
         self.ia = ia
@@ -55,7 +62,7 @@ class ChatbotService:
             ConversationState.SERVICO_DEPTO_PESSOAL_PERGUNTA_1: self._handle_servico_depto_pessoal_pergunta_1,
             ConversationState.SERVICO_ABERTURA_EMPRESA_PERGUNTA_1: self._handle_servico_abertura_empresa_pergunta_1,
             ConversationState.SERVICO_PLANEJAMENTO_MENU: self._handle_servico_planejamento_menu,
-            ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION: self._handle_servico_ia_classify_await_description,
+            ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION: self._call_ia_fallback,
             ConversationState.SERVICO_IA_CLASSIFY_AWAIT_CONFIRMATION: self._handle_servico_ia_classify_await_confirmation,
             ConversationState.DOUBTS: self._handle_doubts,
             ConversationState.ATENDIMENTO_HUMANO: self._handle_atendimento_humano,
@@ -149,8 +156,18 @@ class ChatbotService:
             if validar_cpf(doc):
                 session.client.document_type = DocumentType.CPF
                 session.client.document_number = doc
-                self._set_state(session, ConversationState.AGUARDANDO_NOME_PF)
-                return "CPF validado. Por favor, digite seu nome completo para prosseguirmos.\n\n*(Digite 'Voltar' para o menu principal)*"
+                if (
+                    session.client.service
+                    and self._get_service_type(session.client.service) == "PJ"
+                ):
+                    return (
+                        f"Você informou um CPF, mas o serviço selecionado ({session.client.service.value}) é para Pessoa Jurídica. "
+                        "Por favor, digite um CNPJ compatível com o serviço, ou digite 'Voltar' para escolher outro serviço.\n\n"
+                        "*(Digite 'Voltar' para o menu principal)*"
+                    )
+                else:
+                    self._set_state(session, ConversationState.AGUARDANDO_NOME_PF)
+                    return "CPF validado. Por favor, digite seu nome completo para prosseguirmos.\n\n*(Digite 'Voltar' para o menu principal)*"
         if len(doc) == 14:
             dados = await self._buscar_dados_documento(session, doc)
             print(dados)
@@ -170,10 +187,24 @@ class ChatbotService:
                 else:
                     response = "Não localizei a razão social ou nome fantasia, mas pode ser um erro no sistema. Vamos prosseguir.\n\n"
 
-                self._set_state(
-                    session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ
-                )
-                return response + self._menu_servicos_pj(session)
+                if (
+                    session.client.service
+                    and self._get_service_type(session.client.service) == "PF"
+                ):
+                    return (
+                        f"Você informou um CNPJ, mas o serviço selecionado ({session.client.service.value}) é para Pessoa Física. "
+                        "Por favor, digite um CPF compatível com o serviço, ou digite 'Voltar' para escolher outro serviço.\n\n"
+                        "*(Digite 'Voltar' para o menu principal)*"
+                    )
+                elif session.client.service:
+                    return await self._redirect_to_service_flow(
+                        session, session.client.service.value
+                    )
+                else:
+                    self._set_state(
+                        session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ
+                    )
+                    return response + self._menu_servicos_pj(session)
         else:
             return "Número de documento inválido. Por favor, digite um CPF (11 números) ou CNPJ (14 números).\n\n*(Digite 'Voltar' para o menu principal)*"
 
@@ -182,7 +213,9 @@ class ChatbotService:
     ) -> str:
         session.client.name = user_message.strip()
         if session.client.service:
-            return await self._redirect_to_service_flow(session, session.client.service)
+            return await self._redirect_to_service_flow(
+                session, session.client.service.value
+            )
         self._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF)
         return (
             f"Obrigado, {session.client.name}! Agora, por favor, escolha o serviço desejado:\n\n"
@@ -199,7 +232,7 @@ class ChatbotService:
                 session, "Solicitou: Imposto de Renda Pessoa Física."
             )
         else:
-            return self._call_ia_fallback(session, user_message)
+            return await self._call_ia_fallback(session, user_message)
 
     def _handle_servico_depto_pessoal_pergunta_1(
         self, session: UserSession, user_message: str
@@ -242,38 +275,16 @@ class ChatbotService:
         self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
         return self._enviar_para_atendente_humano(session, contexto)
 
-    def _handle_servico_ia_classify_await_description(
-        self, session: UserSession, user_message: str
-    ) -> str:
-        ia_result = self.ia.handle_ai_request(session.chat_history, session.state)
-
-        if ia_result.get("status") == "fail" or ia_result.get("service") == "OUTRO":
-            return (
-                "Desculpe, não consegui identificar um serviço específico para sua necessidade. Estou te encaminhando para um de nossos especialistas para te ajudar melhor.\n\n"
-                + self._enviar_para_atendente_humano(
-                    session,
-                    "Falha na classificação da IA.",
-                )
-            )
-
-        session.ia_suggestion = ia_result["service"]
-        self._set_state(
-            session, ConversationState.SERVICO_IA_CLASSIFY_AWAIT_CONFIRMATION
-        )
-
-        return (
-            f"Entendido. Pela sua descrição, parece que você precisa de: **{ia_result['service']}**.\n\n"
-            f"*{ia_result['description']}*\n\n"
-            "Isso está correto? (Sim/Não)\n\n"
-            "*(Digite 'Voltar' para descrever novamente)*"
-        )
-
-    def _handle_servico_ia_classify_await_confirmation(
+    async def _handle_servico_ia_classify_await_confirmation(
         self, session: UserSession, user_message: str
     ) -> str:
         if user_message.lower() in ["sim", "s"]:
-            session.client.service = session.ia_suggestion
+            session.client.service = AccountingService(session.ia_suggestion)
             logging.info(f"Usuário aceitou a sugestão da IA: {session.ia_suggestion}")
+            if session.client.document_number:
+                return await self._redirect_to_service_flow(
+                    session, session.client.service.value
+                )
             self._set_state(session, ConversationState.AGUARDANDO_CPF_CNPJ)
             return self.state_entry_messages.get(session.state)
         else:
@@ -313,7 +324,14 @@ class ChatbotService:
             self._set_state(
                 session, ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION
             )
-            return "Vamos tentar de novo. Por favor, descreva sua necessidade para eu classificar o serviço.\n\n*(Digite 'Voltar' para o menu de serviços)*"
+            entry_message_or_func = self.state_entry_messages.get(session.state)
+            if callable(entry_message_or_func):
+                return entry_message_or_func(session)
+            elif isinstance(entry_message_or_func, str):
+                return entry_message_or_func
+            else:
+                session.reset()
+                return self._menu_inicial(session)
 
         self._set_state(session, session.previous_state)
 
@@ -329,10 +347,12 @@ class ChatbotService:
 
     async def _call_ia_fallback(self, session: UserSession, user_message: str) -> str:
         logging.info(f"Chamando IA como fallback para o estado: {session.state}")
-        past = session.state
-        session.state = ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION
+        past = session.state  # Reintroduce past
+        current_fallback_state = session.state
         logging.info(f"Type of self.ia: {type(self.ia)}, Value of self.ia: {self.ia}")
-        ia_result = self.ia.handle_ai_request(session.chat_history, session.state)
+        ia_result = self.ia.handle_ai_request(
+            session.chat_history, current_fallback_state
+        )
         if ia_result is None:
             logging.error(
                 f"ia_result is None from handle_ai_request for user: {session.client.user_id}"
@@ -342,29 +362,107 @@ class ChatbotService:
                 session,
                 f"Erro interno: IA retornou valor nulo para a mensagem '{user_message}'.",
             )
-        if ia_result.get("service") and ia_result.get("service") != "OUTRO":
-            session.ia_suggestion = ia_result["service"]
+
+        if ia_result["type"] == "answer":
             self._set_state(
-                session, ConversationState.SERVICO_IA_CLASSIFY_AWAIT_CONFIRMATION
-            )
-            return (
-                f"Entendido. Pela sua descrição, parece que você precisa de: **{ia_result['service']}**.\n\n"
-                f"*{ia_result['description']}*\n\n"
-                "Isso está correto? (Sim/Não)\n\n"
-                "*(Digite 'Voltar' para descrever novamente)*"
-            )
-        elif ia_result.get("option") and ia_result.get("option") != "None":
-            logging.info(
-                f"IA classificou a opção: {ia_result.get('option')}. Reprocessando..."
-            )
-            session.chat_history.pop()
-            session.state = past
-            return await self.process_message(
-                session.client.user_id, ia_result.get("option")
-            )
+                session, ConversationState.ATENDIMENTO_HUMANO
+            )  # Transition to human assistance after answering a doubt
+            return ia_result["content"]
+
+        # Handle classification results
+        if current_fallback_state == ConversationState.AGUARDANDO_OPCAO_INICIAL:
+            if ia_result.get("service") and ia_result.get("service") in [
+                s.value for s in AccountingService
+            ]:
+                session.ia_suggestion = ia_result["service"]
+                self._set_state(
+                    session, ConversationState.AGUARDANDO_CPF_CNPJ
+                )  # Go to CPF/CNPJ after initial service classification
+                return (
+                    f"Entendido. Pela sua descrição, parece que você precisa de: **{ia_result['service']}**.\n\n"
+                    f"*{ia_result['description']}*\n\n"
+                    "Para prosseguir, por favor, informe seu CPF (11 números) ou CNPJ (14 números).\n\n"
+                    "*(Digite 'Voltar' para o menu principal)*"
+                )
+            elif ia_result.get("option") and ia_result.get("option") != "None":
+                logging.info(
+                    f"IA classificou a opção: {ia_result.get('option')}. Reprocessando..."
+                )
+                session.chat_history.pop()  # Remove the current user message from history before re-processing
+                session.state = past  # Revert to the state before fallback
+                return await self.process_message(
+                    session.client.user_id, ia_result.get("option")
+                )
+            else:
+                logging.warning(
+                    f"IA fallback para AGUARDANDO_OPCAO_INICIAL falhou ou retornou classificação inesperada. "
+                    f"IA Result: {ia_result}"
+                )
+                self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
+                return self._enviar_para_atendente_humano(
+                    session,
+                    f"IA não conseguiu classificar o serviço ou opção inicial para a mensagem '{user_message}'.",
+                )
+        elif current_fallback_state in [
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF,
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ,
+        ]:
+            if ia_result.get("option") and ia_result.get("option") != "None":
+                logging.info(
+                    f"IA classificou a opção: {ia_result.get('option')}. Reprocessando..."
+                )
+                session.chat_history.pop()  # Remove the current user message from history before re-processing
+                session.state = past  # Revert to the state before fallback
+                return await self.process_message(
+                    session.client.user_id, ia_result.get("option")
+                )
+            else:
+                logging.warning(
+                    f"IA fallback para menu de serviços falhou ou retornou classificação inesperada. "
+                    f"IA Result: {ia_result}"
+                )
+                self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
+                return self._enviar_para_atendente_humano(
+                    session,
+                    f"IA não conseguiu classificar a opção de serviço para a mensagem '{user_message}'.",
+                )
+        elif (
+            current_fallback_state
+            == ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION
+        ):
+            if ia_result.get("service") and ia_result.get("service") != "OUTRO":
+                session.ia_suggestion = ia_result["service"]
+                self._set_state(
+                    session, ConversationState.SERVICO_IA_CLASSIFY_AWAIT_CONFIRMATION
+                )
+                return (
+                    f"Entendido. Pela sua descrição, parece que você precisa de: **{ia_result['service']}**.\n\n"
+                    f"*{ia_result['description']}*\n\n"
+                    "Isso está correto? (Sim/Não)\n\n"
+                    "*(Digite 'Voltar' para descrever novamente)*"
+                )
+            elif ia_result.get("option") and ia_result.get("option") != "None":
+                logging.info(
+                    f"IA classificou a opção: {ia_result.get('option')}. Reprocessando..."
+                )
+                session.chat_history.pop()
+                session.state = past
+                return await self.process_message(
+                    session.client.user_id, ia_result.get("option")
+                )
+            else:
+                logging.warning(
+                    f"IA fallback falhou ou retornou classificação inesperada para o estado {session.state}. "
+                    f"IA Result: {ia_result}"
+                )
+                self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
+                return self._enviar_para_atendente_humano(
+                    session,
+                    f"IA não conseguiu responder à mensagem '{user_message}' no estado '{session.state}'.",
+                )
         else:
             logging.warning(
-                f"IA fallback falhou ou retornou classificação inesperada para o estado {session.state}. "
+                f"IA fallback para estado não tratado ({current_fallback_state}) ou retornou classificação inesperada. "
                 f"IA Result: {ia_result}"
             )
             self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
@@ -380,13 +478,13 @@ class ChatbotService:
     ) -> str:
         """Redireciona o usuário para o início do sub-fluxo de serviço após a confirmação da IA."""
         if service_key == AccountingService.REGULARIZACAO_EMPRESA.value:
-            return self._handle_service_choice_pj(session, "1")
+            return await self._handle_service_choice_pj(session, "1")
         elif service_key == AccountingService.DEPARTAMENTO_PESSOAL.value:
-            return self._handle_service_choice_pj(session, "2")
+            return await self._handle_service_choice_pj(session, "2")
         elif service_key == AccountingService.ABERTURA_EMPRESA.value:
-            return self._handle_service_choice_pj(session, "3")
+            return await self._handle_service_choice_pj(session, "3")
         elif service_key == AccountingService.PLANEJAMENTO_PATRIMONIAL.value:
-            return self._handle_service_choice_pj(session, "4")
+            return await self._handle_service_choice_pj(session, "4")
         elif service_key == AccountingService.IMPOSTO_RENDA_PF.value:
             return await self._handle_aguardando_escolha_servico_pf(session, "1")
         else:
@@ -396,7 +494,9 @@ class ChatbotService:
                 f"IA classificou '{service_key}', mas não há fluxo de redirecionamento.",
             )
 
-    def _handle_service_choice_pj(self, session: UserSession, user_message: str) -> str:
+    async def _handle_service_choice_pj(
+        self, session: UserSession, user_message: str
+    ) -> str:
         """Processa a escolha do menu de Serviços PJ. Reutilizado por outros handlers."""
         if user_message == "1":
             session.client.service = AccountingService.REGULARIZACAO_EMPRESA
@@ -424,15 +524,19 @@ class ChatbotService:
             )
             return "Entendido. Por favor, descreva em poucas palavras qual é o seu problema ou necessidade para que eu possa te ajudar a encontrar o serviço certo.\n\n*(Digite 'Voltar' para o menu de serviços)*"
         else:
-            return self._call_ia_fallback(session, user_message)
+            return await self._call_ia_fallback(session, user_message)
 
     # --- Funções de Menu (Textos) ---
 
     def _menu_inicial(self, session, add_stage=True):
         if add_stage:
             self._set_state(session, ConversationState.AGUARDANDO_OPCAO_INICIAL)
+        greeting = "Olá"
+        if session.client.name:
+            greeting += f", {session.client.name}"
+        greeting += "! Bem-vindo(a) ao atendimento da DAS Contabilidade.\n"
         return (
-            "Olá! Bem-vindo(a) ao atendimento da DAS Contabilidade.\n"
+            f"{greeting}\n"
             "Eu sou o CountBelly, seu assistente virtual.\n\n"
             "Como posso te ajudar hoje?\n\n"
             "1. Sou novo por aqui.\n"
@@ -444,8 +548,11 @@ class ChatbotService:
     def _menu_servicos_pf(self, session, add_stage=True):
         if add_stage:
             self._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF)
+        greeting = ""
+        if session.client.name:
+            greeting = f"Olá, {session.client.name}! "
         return (
-            "Serviços disponíveis para CPF:\n\n"
+            f"{greeting}Serviços disponíveis para CPF:\n\n"
             "1. Imposto de Renda Pessoa Física\n\n"
             "*(Digite o número da opção ou 'Voltar')*"
         )
@@ -454,8 +561,11 @@ class ChatbotService:
         """Menu específico para Pessoa Jurídica."""
         if add_stage:
             self._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ)
+        greeting = ""
+        if session.client.name:
+            greeting = f"Olá, {session.client.name}! "
         return (
-            "Serviços disponíveis para CNPJ:\n\n"
+            f"{greeting}Serviços disponíveis para CNPJ:\n\n"
             "1. Regularização de Empresa\n"
             "2. Departamento Pessoal (eSocial, etc.)\n"
             "3. Abertura de Empresa\n"

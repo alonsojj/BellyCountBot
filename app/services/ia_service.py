@@ -40,6 +40,65 @@ class IaService:
                 "relacionadas a contabilidade, finanças e aos serviços da DAS."
                 "\n\nO usuário tem uma dúvida. Responda diretamente à última pergunta dele, usando o histórico como contexto."
             )
+        elif stage == ConversationState.AGUARDANDO_OPCAO_INICIAL:
+            system_prompt = (
+                "Você é um classificador de intenções. Analise a conversa e a última mensagem do usuário."
+                "\nSua tarefa é identificar a intenção do usuário e classificá-la como um 'service' ou uma 'option'."
+                "\nRetorne **apenas um objeto JSON** com as chaves 'service', 'option' e 'description'."
+                "\n"
+                "As opções do menu inicial são:\n"
+                "- 1. Sou novo por aqui.\n"
+                "- 2. Preciso de um serviço específico.\n"
+                "- 3. Tenho uma dúvida.\n"
+                "\nPriorize a identificação de um 'service'. Se a intenção do usuário for claramente um serviço, "
+                "a chave 'service' deve ser UMA das seguintes strings: "
+                f"'[{', '.join([s.value for s in AccountingService])}]'. "
+                "A chave 'option' deve ser 'None'."
+                "\nSe a intenção do usuário corresponder a uma das opções numeradas do menu inicial, "
+                "e um 'service' específico não for identificado, então a chave 'option' deve ser o *número* da opção (ex: '1', '2', '3'). "
+                "Nesse caso, a chave 'service' deve ser 'None'."
+                "\nA chave 'description' deve ser uma explicação curta (1-2 frases) sobre o serviço ou opção identificada."
+                "\nSe o problema não se encaixar em nenhum serviço ou opção, use o serviço 'OUTRO' para a chave 'service' e 'None' para 'option'."
+            )
+        elif stage in [
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF,
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ,
+        ]:
+            system_prompt = (
+                "Você é um classificador de intenções. Analise a conversa e a última mensagem do usuário."
+                "\nSua tarefa é identificar se a intenção do usuário corresponde a uma das opções apresentadas na última mensagem do chatbot."
+                "\nRetorne **apenas um objeto JSON** com as chaves 'option' e 'description'."
+                "\n"
+            )
+
+            last_assistant_message = None
+            for msg in reversed(chat_history[:-1]):
+                if msg["role"] == "assistant":
+                    last_assistant_message = msg["content"]
+                    break
+
+            if last_assistant_message:
+                options_pattern = re.compile(r"^(\d+)\.\s(.+)$", re.MULTILINE)
+                numbered_options = options_pattern.findall(last_assistant_message)
+
+                if numbered_options:
+                    system_prompt += (
+                        "\nAs opções que o chatbot apresentou ao usuário são:\n"
+                    )
+                    for num, desc in numbered_options:
+                        system_prompt += f"- {num}. {desc}\n"
+                    system_prompt += (
+                        "\nCom base na última mensagem do usuário e nas opções acima, se a intenção do usuário corresponder a uma dessas opções, "
+                        "retorne o *número* da opção (ex: '1', '2', '3') na chave 'option'."
+                        "\nCaso contrário, a chave 'option' deve ser 'None'."
+                    )
+                else:
+                    system_prompt += "\nNão foram encontradas opções numeradas na última mensagem do chatbot. A chave 'option' deve ser 'None'."
+            else:
+                system_prompt += "\nNão foi encontrada uma mensagem anterior do chatbot com opções. A chave 'option' deve ser 'None'."
+
+            system_prompt += "\nA chave 'description' deve ser uma explicação curta (1-2 frases) sobre a opção identificada."
+
         elif stage == ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION:
             system_prompt = (
                 "Você é um classificador de intenções. Analise a conversa e a última mensagem do usuário."
@@ -128,22 +187,100 @@ class IaService:
 
         # --- Geração da Resposta ---
         try:
-            # Lógica de Classificação JSON
-            if stage == ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION:
+            if stage == ConversationState.DOUBTS:
+                chat_completion = self.client.chat.completions.create(
+                    messages=messages_to_send,
+                    model="llama-3.3-70b-versatile",
+                )
+                response_content = chat_completion.choices[0].message.content
+                logging.debug("handle_ai_request returning answer success.")
+                return {
+                    "status": "success",
+                    "type": "answer",
+                    "content": response_content
+                    + "\n\n*(Digite 'Voltar' para a etapa anterior.)*",
+                }
+            elif stage == ConversationState.AGUARDANDO_OPCAO_INICIAL:
                 chat_completion = self.client.chat.completions.create(
                     messages=messages_to_send,
                     model="llama-3.3-70b-versatile",
                     response_format={"type": "json_object"},
                 )
                 response_content = chat_completion.choices[0].message.content
-                logging.info(f"IA Classification RAW JSON: {response_content}")
+                logging.info(
+                    f"IA Classification RAW JSON (AGUARDANDO_OPCAO_INICIAL): {response_content}"
+                )
 
                 parsed_json = json.loads(response_content)
                 service = parsed_json.get("service")
                 description = parsed_json.get("description")
                 option = parsed_json.get("option")
 
-                if option is None and service not in [s.value for s in AccountingService] and service != "OUTRO":
+                if (
+                    service not in [s.value for s in AccountingService]
+                    and service != "OUTRO"
+                    and option is None
+                ):
+                    logging.warning(
+                        f"IA retornou serviço inválido e nenhuma opção: {service}"
+                    )
+                    return {
+                        "status": "fail",
+                        "content": "Não consegui identificar o serviço ou opção.",
+                    }
+                return {
+                    "status": "success",
+                    "type": "classification",
+                    "service": service,
+                    "description": description,
+                    "option": option,
+                }
+            elif stage in [
+                ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF,
+                ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ,
+            ]:
+                chat_completion = self.client.chat.completions.create(
+                    messages=messages_to_send,
+                    model="llama-3.3-70b-versatile",
+                    response_format={"type": "json_object"},
+                )
+                response_content = chat_completion.choices[0].message.content
+                logging.info(
+                    f"IA Classification RAW JSON (AGUARDANDO_ESCOLHA_SERVICO_PF/PJ): {response_content}"
+                )
+
+                parsed_json = json.loads(response_content)
+                option = parsed_json.get("option")
+                description = parsed_json.get("description")
+
+                return {
+                    "status": "success",
+                    "type": "classification",
+                    "service": None,
+                    "description": description,
+                    "option": option,
+                }
+            elif stage == ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION:
+                chat_completion = self.client.chat.completions.create(
+                    messages=messages_to_send,
+                    model="llama-3.3-70b-versatile",
+                    response_format={"type": "json_object"},
+                )
+                response_content = chat_completion.choices[0].message.content
+                logging.info(
+                    f"IA Classification RAW JSON (SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION): {response_content}"
+                )
+
+                parsed_json = json.loads(response_content)
+                service = parsed_json.get("service")
+                description = parsed_json.get("description")
+                option = parsed_json.get("option")
+
+                if (
+                    option is None
+                    and service not in [s.value for s in AccountingService]
+                    and service != "OUTRO"
+                ):
                     logging.warning(f"IA retornou serviço inválido: {service}")
                     logging.debug("handle_ai_request returning from invalid service.")
                     return {
@@ -157,16 +294,17 @@ class IaService:
                     "type": "classification",
                     "service": service,
                     "description": description,
-                    "option": option
+                    "option": option,
                 }
-
-            else:
+            else:  # Fallback for any other state not explicitly handled
                 chat_completion = self.client.chat.completions.create(
                     messages=messages_to_send,
                     model="llama-3.3-70b-versatile",
                 )
                 response_content = chat_completion.choices[0].message.content
-                logging.debug("handle_ai_request returning answer success.")
+                logging.debug(
+                    "handle_ai_request returning answer success for unhandled state."
+                )
                 return {
                     "status": "success",
                     "type": "answer",
