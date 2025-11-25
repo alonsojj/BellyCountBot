@@ -1,9 +1,11 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+
 class CnaeSecundario(BaseModel):
     codigo: int
     descricao: str
+
 
 class CNPJData(BaseModel):
     sucesso: bool = True

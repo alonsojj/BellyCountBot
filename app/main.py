@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from .api import webhook
 from .api import admin
 import asyncio
-import time
 import logging
 from app.core.dependencies import get_chatbot_service, get_whatsapp_service
 

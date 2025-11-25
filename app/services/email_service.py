@@ -46,7 +46,7 @@ def send_email(resumo):
     logo = MIMEImage(logo_data)
     logo.add_header("Content-ID", "<logo>")
     msg.attach(logo)
-    
+
     # Realizar o envio do e-mail
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
         smtp.login(remetente, senha)

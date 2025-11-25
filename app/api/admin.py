@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.admin_model import UserId, UserIds, SetMode
-from app.services import AdminService, ChatbotService, WhatsAppService
+from app.services import AdminService, WhatsAppService
+from app.services.chatbot import ChatbotService
 from app.core.dependencies import (
     get_admin_service,
     get_chatbot_service,
