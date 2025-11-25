@@ -342,21 +342,36 @@ class ChatbotService:
             return "Você já está na fila para o atendimento humano. Por favor, aguarde mais um momento que um especialista logo falará com você.\n\n*(Se desejar recomeçar do zero, digite 'Voltar')*"
 
     def _handle_voltar(self, session: UserSession) -> str:
-        """Lida com o comando 'voltar', retornando ao estado anterior."""
+        """Lida com o comando 'voltar', retornando ao estado anterior de forma mais robusta."""
+        session.client.service = None  # Reset the service when going back
         if session.state == ConversationState.SERVICO_IA_CLASSIFY_AWAIT_CONFIRMATION:
             self._set_state(
                 session, ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION
             )
-            entry_message_or_func = self.state_entry_messages.get(session.state)
-            if callable(entry_message_or_func):
-                return entry_message_or_func(session)
-            elif isinstance(entry_message_or_func, str):
-                return entry_message_or_func
-            else:
-                session.reset()
-                return self._menu_inicial(session)
-
-        self._set_state(session, session.previous_state)
+        elif session.state in [
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF,
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ,
+        ]:
+            # From service choice menu, always go back to CPF/CNPJ input
+            self._set_state(session, ConversationState.AGUARDANDO_CPF_CNPJ)
+        elif session.state == ConversationState.AGUARDANDO_CPF_CNPJ:
+            # From CPF/CNPJ input, always go back to initial option menu
+            self._set_state(session, ConversationState.AGUARDANDO_OPCAO_INICIAL)
+        elif session.state == ConversationState.AGUARDANDO_NOME_PF:
+            # From name input, go back to CPF/CNPJ input
+            self._set_state(session, ConversationState.AGUARDANDO_CPF_CNPJ)
+        elif session.state == ConversationState.DOUBTS:
+            # From doubts, go back to initial option menu
+            self._set_state(session, ConversationState.AGUARDANDO_OPCAO_INICIAL)
+        elif (
+            session.state == ConversationState.ATENDIMENTO_HUMANO
+            or session.state == ConversationState.HUMAN_ATTENDING
+        ):
+            # If in human attendance, "Voltar" should reset the session
+            session.reset()
+        else:
+            # For other states, use the simple previous_state logic
+            self._set_state(session, session.previous_state)
 
         entry_message_or_func = self.state_entry_messages.get(session.state)
 
@@ -365,7 +380,7 @@ class ChatbotService:
         elif isinstance(entry_message_or_func, str):
             return entry_message_or_func
         else:
-            session.reset()
+            session.reset()  # Fallback if no entry message is defined for the new state
             return self._menu_inicial(session)
 
     async def _call_ia_fallback(self, session: UserSession, user_message: str) -> str:
@@ -398,6 +413,7 @@ class ChatbotService:
                 s.value for s in AccountingService
             ]:
                 session.ia_suggestion = ia_result["service"]
+                session.client.service = AccountingService(session.ia_suggestion)
                 self._set_state(
                     session, ConversationState.AGUARDANDO_CPF_CNPJ
                 )  # Go to CPF/CNPJ after initial service classification
@@ -565,7 +581,7 @@ class ChatbotService:
             "1. Sou novo por aqui.\n"
             "2. Preciso de um serviço específico.\n"
             "3. Tenho uma dúvida.\n\n"
-            "*(Digite o número da opção desejada)*"
+            "*(Digite o número da opção desejada ou em poucas palavras o que deseja)*"
         )
 
     def _menu_servicos_pf(self, session, add_stage=True):

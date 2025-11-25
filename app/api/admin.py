@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.admin_model import UserId, UserIds, SetMode
-from app.services import AdminService, ChatbotService
-from app.core.dependencies import get_admin_service, get_chatbot_service
+from app.services import AdminService, ChatbotService, WhatsAppService
+from app.core.dependencies import (
+    get_admin_service,
+    get_chatbot_service,
+    get_whatsapp_service,
+)
 from app.core.auth import verify_credentials
 
 router = APIRouter(
@@ -69,9 +73,7 @@ def get_mode(service: AdminService = Depends(get_admin_service)):
 
 
 @router.post("/mode")
-def set_mode(
-    mode: SetMode, service: AdminService = Depends(get_admin_service)
-):
+def set_mode(mode: SetMode, service: AdminService = Depends(get_admin_service)):
     try:
         service.set_mode(mode.mode)
         return {"message": f"Mode set to {mode.mode.name}"}
@@ -81,10 +83,17 @@ def set_mode(
 
 @router.delete("/session/{user_id}")
 def delete_user_session(
-    user_id: str, chatbot_service: ChatbotService = Depends(get_chatbot_service)
+    user_id: str,
+    chatbot_service: ChatbotService = Depends(get_chatbot_service),
+    whatsapp_service: WhatsAppService = Depends(get_whatsapp_service),
 ):
     if user_id not in chatbot_service.user_sessions:
-        raise HTTPException(status_code=404, detail=f"Session for user {user_id} not found.")
-    
+        raise HTTPException(
+            status_code=404, detail=f"Session for user {user_id} not found."
+        )
+    session = chatbot_service._get_session(user_id)
+    whatsapp_service.send_text(
+        user_id, "Atendimento encerrado", session.whatsapp_instance
+    )
     chatbot_service.delete_session(user_id)
     return {"status": "ok", "message": f"Session for user {user_id} deleted."}
