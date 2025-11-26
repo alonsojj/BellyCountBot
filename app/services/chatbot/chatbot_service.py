@@ -5,11 +5,11 @@ from typing import Optional
 from app.models.enums import ConversationState, AccountingService
 from app.models.user_session import UserSession
 from app.services.ia_service import IaService
-from app.services.email_service import send_email
 from app.services.document_service import (
     consultar_cnpj_empresa,
     CNPJData,
 )
+from app.services.email_service import EmailService
 
 from .handlers.greeting import GreetingHandler
 from .handlers.initial_option import InitialOptionHandler
@@ -37,9 +37,10 @@ class ChatbotService:
     para o handler de estado apropriado.
     """
 
-    def __init__(self, ia: IaService):
+    def __init__(self, ia: IaService, email_service: EmailService):
         self.user_sessions = {}
         self.ia = ia
+        self.email_service = email_service
         logging.info("ChatbotService iniciado com handlers de estado refatorados.")
 
         self.state_handlers = {
@@ -178,7 +179,17 @@ class ChatbotService:
             "whatsapp_link": f"https://wa.me/{session.client.user_id}",
         }
         logging.info(f"Direcionamento para humano acionado: {resumo}")
-        send_email(resumo)
+
+        try:
+            from app.core.settings import get_settings
+
+            settings = get_settings()
+            self.email_service.send_notification_email(
+                resumo, settings.ADMIN_EMAIL_RECIPIENT
+            )
+        except Exception as e:
+            logging.error(f"Falha ao enviar e-mail de notificação: {e}")
+
         return (
             "Entendido! Já estou chamando um de nossos especialistas para falar com você.\n\n"
             f"Eles receberão o seguinte resumo: *{motivo}*\n\n"
@@ -211,4 +222,3 @@ class ChatbotService:
         if user_id in self.user_sessions:
             del self.user_sessions[user_id]
             logging.info(f"Sessão do usuário {user_id} deletada.")
-

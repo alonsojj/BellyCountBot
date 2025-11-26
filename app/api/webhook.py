@@ -1,6 +1,8 @@
+import logging
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import ValidationError
 from app.models import WebhookPayload
+from app.models.enums import ConversationState
 from app.services.chatbot import ChatbotService
 from app.services import WhatsAppService, AdminService
 from app.core.dependencies import (
@@ -20,25 +22,25 @@ async def receive_webhook(
     acces_control_service: AdminService = Depends(get_admin_service),
 ):
     data = await request.json()
-    print(data)
+    logging.debug(f"Webhook data received: {data}")
     try:
         payload = WebhookPayload(**data)
     except ValidationError as e:
-        print("Erro", e)
+        logging.error(f"ValidationError in webhook payload: {e}")
         raise HTTPException(status_code=422, detail=e.errors())
 
     if payload.is_group or not acces_control_service.is_allowed(payload.user_id):
         return {"status": "ok"}
 
-    # current_state = chatbot_service.get_session_state(payload.user_id)
+    current_state = chatbot_service.get_session_state(payload.user_id)
 
-    # if payload.is_me:
-    #     if current_state in [
-    #         ConversationState.ATENDIMENTO_HUMANO,
-    #         ConversationState.HUMAN_ATTENDING,
-    #     ]:
-    #         chatbot_service.set_human_attending(payload.user_id)
-    #     return {"status": "ok"}
+    if payload.is_me:
+        if current_state in [
+            ConversationState.ATENDIMENTO_HUMANO,
+            ConversationState.HUMAN_ATTENDING,
+        ]:
+            chatbot_service.set_human_attending(payload.user_id)
+        return {"status": "ok"}
 
     if payload.data.messageType != "conversation":
         response_text = "Desculpe, no momento só consigo processar mensagens de texto. Por favor, digite sua mensagem."

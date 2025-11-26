@@ -1,3 +1,4 @@
+import logging
 from app.core.settings import get_settings
 from app.models.enums import AccessOption
 from pathlib import Path
@@ -25,7 +26,7 @@ class AdminService:
                 lines = f.read().splitlines()
                 return {line.strip() for line in lines if line.strip()}
         except IOError as e:
-            print(f"Error loading {filename}: {e}")
+            logging.error(f"Error loading {filename}: {e}")
             return set()
 
     def _save_list(self, list_to_save: set, filename: str):

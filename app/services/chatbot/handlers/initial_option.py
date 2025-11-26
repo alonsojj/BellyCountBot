@@ -15,9 +15,9 @@ class InitialOptionHandler(StateHandler):
     ) -> str:
         """Processa a escolha do usuário no menu inicial."""
         if user_message == "1":
-            service._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
-            new_handler = service.state_handlers[ConversationState.ATENDIMENTO_HUMANO]
-            return new_handler.get_entry_message(service, session)
+            return service._enviar_para_atendente_humano(
+                session, "Usuário novo, precisa de atenção."
+            )
         elif user_message == "2":
             service._set_state(session, ConversationState.AGUARDANDO_CPF_CNPJ)
             new_handler = service.state_handlers[ConversationState.AGUARDANDO_CPF_CNPJ]

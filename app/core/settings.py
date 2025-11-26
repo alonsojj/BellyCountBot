@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     ACCESS_CONTROL_MODE: str = "DISABLE"
     EMAIL_SENDER_ADDRESS: str
     EMAIL_SENDER_PASSWORD: str
+    EMAIL_SMTP_SERVER: str = "smtp.gmail.com"
+    EMAIL_SMTP_PORT: int = 465
+    ADMIN_EMAIL_RECIPIENT: str
 
     class Config:
         env_file = ".env"
