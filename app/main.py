@@ -14,9 +14,9 @@ app = FastAPI(title="BellyCountBot")
 app.include_router(webhook.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 
-# Constants for inactivity check
-INACTIVITY_CHECK_INTERVAL = 30  # Check every 30 seconds
-INACTIVITY_MINUTES = 1  # 5 minutes of inactivity
+
+INACTIVITY_CHECK_INTERVAL = 30
+INACTIVITY_MINUTES = 1
 
 inactivity_checker_task = None
 
@@ -37,11 +37,10 @@ async def inactivity_checker():
                 logging.info(
                     f"Sessão do usuário {session.client.user_id} inativa por {INACTIVITY_MINUTES} minutos. Enviando mensagem de encerramento."
                 )
-                # Assuming a default instance for sending messages
                 whatsapp_service.send_text(
                     session.client.user_id,
                     "Olá! Parece que você ficou ausente por um tempo. Para recomeçar, por favor, envie uma nova mensagem.",
-                    session.whatsapp_instance,  # You might need to get the actual instance from the session if available
+                    session.whatsapp_instance,
                 )
                 chatbot_service.delete_session(session.client.user_id)
                 logging.info(
@@ -51,22 +50,3 @@ async def inactivity_checker():
             logging.error(f"Erro no verificador de inatividade: {e}")
 
         await asyncio.sleep(INACTIVITY_CHECK_INTERVAL)
-
-
-@app.on_event("startup")
-async def startup_event():
-    global inactivity_checker_task
-    logging.info("Iniciando verificador de inatividade...")
-    inactivity_checker_task = asyncio.create_task(inactivity_checker())
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    global inactivity_checker_task
-    if inactivity_checker_task:
-        logging.info("Encerrando verificador de inatividade...")
-        inactivity_checker_task.cancel()
-        try:
-            await inactivity_checker_task
-        except asyncio.CancelledError:
-            logging.info("Verificador de inatividade encerrado.")

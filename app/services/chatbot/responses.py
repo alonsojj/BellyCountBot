@@ -21,6 +21,7 @@ def menu_inicial(session: "UserSession") -> str:
         "*(Digite o número da opção desejada ou em poucas palavras o que deseja)*"
     )
 
+
 def menu_servicos_pf(session: "UserSession") -> str:
     """Gera o menu de serviços para Pessoa Física."""
     greeting = ""
@@ -31,6 +32,7 @@ def menu_servicos_pf(session: "UserSession") -> str:
         "1. Imposto de Renda Pessoa Física\n\n"
         "*(Digite o número da opção ou 'Voltar')*"
     )
+
 
 def menu_servicos_pj(session: "UserSession") -> str:
     """Gera o menu de serviços para Pessoa Jurídica."""
@@ -46,6 +48,7 @@ def menu_servicos_pj(session: "UserSession") -> str:
         "5. Outro (Não sei qual escolher)\n\n"
         "*(Digite o número da opção ou 'Voltar')*"
     )
+
 
 def menu_planejamento(session: "UserSession") -> str:
     """Gera o menu para a área de Planejamento."""

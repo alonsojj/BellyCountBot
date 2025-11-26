@@ -41,7 +41,7 @@ class ChatbotService:
         self.user_sessions = {}
         self.ia = ia
         self.email_service = email_service
-        logging.info("ChatbotService iniciado com handlers de estado refatorados.")
+        logging.info("ChatbotService iniciado")
 
         self.state_handlers = {
             ConversationState.GREETING: GreetingHandler(),
