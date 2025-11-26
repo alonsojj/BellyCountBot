@@ -1,4 +1,3 @@
-# app/services/chatbot/handlers/planejamento_menu.py
 from typing import TYPE_CHECKING
 from app.models.enums import ConversationState, AccountingService
 from app.services.chatbot.handlers.base import StateHandler
@@ -28,7 +27,22 @@ class PlanejamentoMenuHandler(StateHandler):
             session.client.service = AccountingService.PLANEJAMENTO_REVISAR_TRIBUTOS
             contexto = "Solicitou: Planejamento (Revisar tributos pagos)"
         else:
-            return await service._call_ia_fallback(session, user_message)
+            ia_handler = service.state_handlers[
+                ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION
+            ]
+            return await ia_handler.handle(service, session, user_message)
 
         service._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
         return service._enviar_para_atendente_humano(session, contexto)
+
+    def get_entry_message(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> str:
+        from app.services.chatbot.responses import menu_planejamento
+
+        return menu_planejamento(session)
+
+    def handle_back(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> ConversationState:
+        return ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ

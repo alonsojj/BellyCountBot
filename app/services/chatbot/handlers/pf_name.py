@@ -1,4 +1,3 @@
-# app/services/chatbot/handlers/pf_name.py
 from typing import TYPE_CHECKING
 from app.models.enums import ConversationState
 from app.services.chatbot.handlers.base import StateHandler
@@ -21,7 +20,17 @@ class PfNameHandler(StateHandler):
             )
 
         service._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF)
-        return (
-            f"Obrigado, {session.client.name}! Agora, por favor, escolha o serviço desejado:\n\n"
-            + service._menu_servicos_pf(session)
-        )
+        new_handler = service.state_handlers[
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF
+        ]
+        return new_handler.get_entry_message(service, session)
+
+    def get_entry_message(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> str:
+        return "CPF validado. Por favor, digite seu nome completo para prosseguirmos.\n\n*(Digite 'Voltar' para o menu principal)*"
+
+    def handle_back(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> ConversationState:
+        return ConversationState.AGUARDANDO_CPF_CNPJ

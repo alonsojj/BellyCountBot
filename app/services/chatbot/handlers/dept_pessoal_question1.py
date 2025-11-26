@@ -1,4 +1,3 @@
-# app/services/chatbot/handlers/dept_pessoal_question1.py
 from typing import TYPE_CHECKING
 from app.models.enums import ConversationState
 from app.services.chatbot.handlers.base import StateHandler
@@ -18,3 +17,13 @@ class DeptPessoalQuestion1Handler(StateHandler):
         )
         service._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
         return service._enviar_para_atendente_humano(session, contexto)
+
+    def get_entry_message(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> str:
+        return "Entendido. Você já possui funcionários registrados? (Sim/Não)\n\n*(Digite 'Voltar' para o menu de serviços)*"
+
+    def handle_back(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> ConversationState:
+        return ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ

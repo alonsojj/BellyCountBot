@@ -1,7 +1,7 @@
-# app/services/chatbot/handlers/pf_service_choice.py
 from typing import TYPE_CHECKING
 from app.models.enums import ConversationState, AccountingService
 from app.services.chatbot.handlers.base import StateHandler
+from app.services.chatbot.responses import menu_servicos_pf
 
 if TYPE_CHECKING:
     from app.services.chatbot.chatbot_service import ChatbotService, UserSession
@@ -20,4 +20,19 @@ class PfServiceChoiceHandler(StateHandler):
                 session, "Solicitou: Imposto de Renda Pessoa Física."
             )
         else:
-            return await service._call_ia_fallback(session, user_message)
+            ia_handler = service.state_handlers[
+                ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION
+            ]
+            return await ia_handler.handle(service, session, user_message)
+
+    def get_entry_message(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> str:
+        return menu_servicos_pf(session)
+
+    def handle_back(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> ConversationState:
+        if session.previous_state == ConversationState.AGUARDANDO_NOME_PF:
+            return ConversationState.AGUARDANDO_NOME_PF
+        return ConversationState.AGUARDANDO_CPF_CNPJ

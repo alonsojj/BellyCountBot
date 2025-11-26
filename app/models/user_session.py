@@ -1,4 +1,3 @@
-# app/models/user_session.py
 from datetime import datetime
 from app.models import Client
 from app.models.enums import ConversationState
@@ -24,4 +23,3 @@ class UserSession:
         self.previous_state = ConversationState.GREETING
         self.chat_history = []
         self.ia_suggestion = None
-        # (Não limpamos os dados do client, como nome/documento)

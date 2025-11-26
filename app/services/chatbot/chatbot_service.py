@@ -11,7 +11,6 @@ from app.services.document_service import (
     CNPJData,
 )
 
-# Imports dos Handlers
 from .handlers.greeting import GreetingHandler
 from .handlers.initial_option import InitialOptionHandler
 from .handlers.cpf_cnpj import CpfCnpjHandler
@@ -24,14 +23,7 @@ from .handlers.planejamento_menu import PlanejamentoMenuHandler
 from .handlers.ia_confirmation import IaConfirmationHandler
 from .handlers.doubts import DoubtsHandler
 from .handlers.human_attendance import HumanAttendanceHandler
-
-# Imports das Respostas
-from .responses import (
-    menu_inicial,
-    menu_servicos_pf,
-    menu_servicos_pj,
-    menu_planejamento,
-)
+from .handlers.ia_classify_await_description import IaClassifyAwaitDescriptionHandler
 
 
 logging.basicConfig(
@@ -50,7 +42,6 @@ class ChatbotService:
         self.ia = ia
         logging.info("ChatbotService iniciado com handlers de estado refatorados.")
 
-        # O dispatcher mapeia cada estado para uma instância de Handler
         self.state_handlers = {
             ConversationState.GREETING: GreetingHandler(),
             ConversationState.AGUARDANDO_OPCAO_INICIAL: InitialOptionHandler(),
@@ -61,25 +52,11 @@ class ChatbotService:
             ConversationState.SERVICO_DEPTO_PESSOAL_PERGUNTA_1: DeptPessoalQuestion1Handler(),
             ConversationState.SERVICO_ABERTURA_EMPRESA_PERGUNTA_1: AberturaEmpresaQuestion1Handler(),
             ConversationState.SERVICO_PLANEJAMENTO_MENU: PlanejamentoMenuHandler(),
-            ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION: self._call_ia_fallback,  # Mantido como método por enquanto
+            ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION: IaClassifyAwaitDescriptionHandler(),
             ConversationState.SERVICO_IA_CLASSIFY_AWAIT_CONFIRMATION: IaConfirmationHandler(),
             ConversationState.DOUBTS: DoubtsHandler(),
             ConversationState.ATENDIMENTO_HUMANO: HumanAttendanceHandler(),
             ConversationState.HUMAN_ATTENDING: HumanAttendanceHandler(),
-        }
-
-        # Mapeia um estado para a mensagem que o inicia (para a função "Voltar")
-        self.state_entry_messages = {
-            ConversationState.GREETING: menu_inicial,
-            ConversationState.AGUARDANDO_OPCAO_INICIAL: menu_inicial,
-            ConversationState.AGUARDANDO_CPF_CNPJ: "Ok, vamos lá. Por favor, me informe seu CPF (11 números) ou CNPJ (14 números).\n\n*(Digite 'Voltar' para o menu principal)*",
-            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF: menu_servicos_pf,
-            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ: menu_servicos_pj,
-            ConversationState.SERVICO_DEPTO_PESSOAL_PERGUNTA_1: "Entendido. Você já possui funcionários registrados? (Sim/Não)\n\n*(Digite 'Voltar' para o menu de serviços)*",
-            ConversationState.SERVICO_ABERTURA_EMPRESA_PERGUNTA_1: "Ok. Você já definiu o tipo de empresa (MEI, LTDA, etc.)? (Sim/Não)\n\n*(Digite 'Voltar' para o menu de serviços)*",
-            ConversationState.SERVICO_PLANEJAMENTO_MENU: menu_planejamento,
-            ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION: "Entendido. Por favor, descreva em poucas palavras qual é o seu problema ou necessidade.\n\n*(Digite 'Voltar' para o menu de serviços)*",
-            ConversationState.DOUBTS: "Claro, por favor, descreva a sua dúvida e eu farei o meu melhor para responder.\n\n*(Digite 'Voltar' para o menu principal)*",
         }
 
     def _get_session(self, user_id: str) -> UserSession:
@@ -110,26 +87,22 @@ class ChatbotService:
         if user_message.lower() == "voltar":
             response = self._handle_voltar(session)
         elif session.state == ConversationState.HUMAN_ATTENDING:
-            response = None  # Não processa mensagens se já estiver em atendimento
+            response = None
         else:
             handler = self.state_handlers.get(session.state)
             if handler:
-                if hasattr(handler, "handle"):  # Verifica se é uma classe de handler
-                    response = await handler.handle(self, session, user_message)
-                else:  # Fallback para métodos antigos (ex: _call_ia_fallback)
-                    response = await handler(session, user_message)
+                response = await handler.handle(self, session, user_message)
             else:
                 logging.error(
                     f"Nenhum handler encontrado para o estado: {session.state}"
                 )
                 session.reset()
-                response = menu_inicial(session)
+                greeting_handler = self.state_handlers[ConversationState.GREETING]
+                response = greeting_handler.get_entry_message(self, session)
 
         if response:
             session.chat_history.append({"role": "assistant", "content": response})
         return response
-
-    # --- MÉTODOS AUXILIARES (Usados pelos Handlers) ---
 
     def _get_service_type(self, service: AccountingService) -> str:
         pf_services = [AccountingService.IMPOSTO_RENDA_PF]
@@ -138,64 +111,27 @@ class ChatbotService:
         return "PJ"
 
     def _handle_voltar(self, session: UserSession) -> str:
+        """
+        Lida com o comando 'voltar' delegando a lógica para o handler do estado atual.
+        """
         session.client.service = None
-        if session.state == ConversationState.SERVICO_IA_CLASSIFY_AWAIT_CONFIRMATION:
-            self._set_state(
-                session, ConversationState.SERVICO_IA_CLASSIFY_AWAIT_DESCRIPTION
-            )
-        elif session.state in [
-            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF,
-            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ,
-            ConversationState.SERVICO_DEPTO_PESSOAL_PERGUNTA_1,
-            ConversationState.SERVICO_ABERTURA_EMPRESA_PERGUNTA_1,
-            ConversationState.SERVICO_PLANEJAMENTO_MENU,
-        ]:
-            self._set_state(session, ConversationState.AGUARDANDO_CPF_CNPJ)
-        elif session.state == ConversationState.AGUARDANDO_CPF_CNPJ:
-            self._set_state(session, ConversationState.AGUARDANDO_OPCAO_INICIAL)
-        elif session.state == ConversationState.AGUARDANDO_NOME_PF:
-            self._set_state(session, ConversationState.AGUARDANDO_CPF_CNPJ)
-        elif session.state == ConversationState.DOUBTS:
-            self._set_state(session, ConversationState.AGUARDANDO_OPCAO_INICIAL)
-        elif session.state in [
+
+        current_handler = self.state_handlers.get(session.state)
+
+        if session.state in [
             ConversationState.ATENDIMENTO_HUMANO,
             ConversationState.HUMAN_ATTENDING,
         ]:
             session.reset()
-        else:
-            self._set_state(session, session.previous_state)
+            new_handler = self.state_handlers[ConversationState.GREETING]
+            return new_handler.get_entry_message(self, session)
 
-        entry_message_or_func = self.state_entry_messages.get(session.state)
-        if callable(entry_message_or_func):
-            return entry_message_or_func(session)
-        elif isinstance(entry_message_or_func, str):
-            return entry_message_or_func
-        else:
-            session.reset()
-            return menu_inicial(session)
+        new_state = current_handler.handle_back(self, session)
 
-    async def _call_ia_fallback(self, session: UserSession, user_message: str) -> str:
-        # Este método é complexo e pode ser um candidato a sua própria classe no futuro
-        logging.info(f"Chamando IA como fallback para o estado: {session.state}")
-        # (A lógica interna do _call_ia_fallback permanece a mesma por enquanto)
-        current_fallback_state = session.state
-        ia_result = self.ia.handle_ai_request(
-            session.chat_history, current_fallback_state
-        )
-        if ia_result is None:
-            logging.error(
-                f"IA retornou 'None' para o usuário: {session.client.user_id}"
-            )
-            self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
-            return self._enviar_para_atendente_humano(
-                session,
-                f"Erro interno: IA retornou valor nulo para a mensagem '{user_message}'.",
-            )
-        if ia_result["type"] == "answer":
-            self._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
-            return ia_result["content"]
-        # ... resto da lógica de fallback ...
-        return "Desculpe, não entendi. Poderia tentar de outra forma?"
+        self._set_state(session, new_state)
+
+        new_handler = self.state_handlers.get(new_state)
+        return new_handler.get_entry_message(self, session)
 
     async def _redirect_to_service_flow(
         self, session: UserSession, service_key: str
@@ -275,3 +211,4 @@ class ChatbotService:
         if user_id in self.user_sessions:
             del self.user_sessions[user_id]
             logging.info(f"Sessão do usuário {user_id} deletada.")
+

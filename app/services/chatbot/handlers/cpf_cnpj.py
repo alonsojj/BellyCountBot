@@ -1,4 +1,3 @@
-# app/services/chatbot/handlers/cpf_cnpj.py
 import re
 from typing import TYPE_CHECKING
 from app.models.enums import ConversationState, DocumentType
@@ -20,15 +19,23 @@ class CpfCnpjHandler(StateHandler):
     ) -> str:
         doc = re.sub(r"\D", "", user_message or "")
 
-        # Validação de CPF
         if len(doc) == 11:
             return await self._handle_cpf(service, session, doc)
 
-        # Validação de CNPJ
         if len(doc) == 14:
             return await self._handle_cnpj(service, session, doc)
 
         return "Número de documento inválido. Por favor, digite um CPF (11 números) ou CNPJ (14 números).\n\n*(Digite 'Voltar' para o menu principal)*"
+
+    def get_entry_message(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> str:
+        return "Ok, vamos lá. Por favor, me informe seu CPF (11 números) ou CNPJ (14 números) para eu localizar seu cadastro.\n\n*(Digite 'Voltar' para o menu principal)*"
+
+    def handle_back(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> ConversationState:
+        return ConversationState.AGUARDANDO_OPCAO_INICIAL
 
     async def _handle_cpf(
         self, service: "ChatbotService", session: "UserSession", doc: str
@@ -50,7 +57,8 @@ class CpfCnpjHandler(StateHandler):
             )
 
         service._set_state(session, ConversationState.AGUARDANDO_NOME_PF)
-        return "CPF validado. Por favor, digite seu nome completo para prosseguirmos.\n\n*(Digite 'Voltar' para o menu principal)*"
+        new_handler = service.state_handlers[ConversationState.AGUARDANDO_NOME_PF]
+        return new_handler.get_entry_message(service, session)
 
     async def _handle_cnpj(
         self, service: "ChatbotService", session: "UserSession", doc: str
@@ -87,4 +95,7 @@ class CpfCnpjHandler(StateHandler):
             )
 
         service._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ)
-        return response + service._menu_servicos_pj(session)
+        new_handler = service.state_handlers[
+            ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PJ
+        ]
+        return response + new_handler.get_entry_message(service, session)

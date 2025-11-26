@@ -1,4 +1,3 @@
-# app/services/chatbot/handlers/doubts.py
 from typing import TYPE_CHECKING
 from app.models.enums import ConversationState
 from app.services.chatbot.handlers.base import StateHandler
@@ -16,7 +15,6 @@ class DoubtsHandler(StateHandler):
     async def handle(
         self, service: "ChatbotService", session: "UserSession", user_message: str
     ) -> str:
-        # Reutiliza o método da IA do serviço principal
         ia_result = service.ia.handle_ai_request(session.chat_history, session.state)
 
         service._set_state(session, ConversationState.ATENDIMENTO_HUMANO)
@@ -31,3 +29,13 @@ class DoubtsHandler(StateHandler):
             ia_result["content"]
             + "\n\nEspero ter ajudado! Se precisar de mais alguma coisa, um de nossos especialistas já foi acionado para falar com você."
         )
+
+    def get_entry_message(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> str:
+        return "Claro, por favor, descreva a sua dúvida e eu farei o meu melhor para responder.\n\n*(Digite 'Voltar' para o menu principal)*"
+
+    def handle_back(
+        self, service: "ChatbotService", session: "UserSession"
+    ) -> ConversationState:
+        return ConversationState.AGUARDANDO_OPCAO_INICIAL
