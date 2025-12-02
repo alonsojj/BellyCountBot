@@ -3,13 +3,12 @@ from contextlib import asynccontextmanager
 import asyncio
 import logging
 
+
 from .api import webhook, admin
 from app.db.base import Base, engine
 from app.core.dependencies import get_chatbot_service, get_whatsapp_service
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.getLogger().setLevel(logging.INFO)
 
 # --- Lógica de Tarefas e Configuração ---
 
