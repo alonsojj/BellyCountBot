@@ -9,11 +9,11 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/alonsojj/BellyCountBot">
+  <a href="https://github.com/alonsojj/CountBellyBot">
     <img src="images/logo.png" alt="Logo" width="100" height="100">
   </a>
 
-<h3 align="center">Belly Count Bot</h3>
+<h3 align="center">Count Belly Bot</h3>
 
   <p align="center">
     AI-powered WhatsApp bot for automate customer service focused on accounting firms
@@ -59,7 +59,7 @@
 
 [![Belly Count Bot Screenshot][product-screenshot]](https://github.com/alonsojj/BellyCountBot)
 
-**Belly Count Bot** is an intelligent WhatsApp assistant...
+**Count Belly Bot** is an intelligent WhatsApp assistant...
 
 
 
@@ -83,7 +83,7 @@
 
 ## Getting Started
 
-Follow these instructions to set up Belly Count Bot locally.
+Follow these instructions to set up Count Belly Bot locally.
 
 ### Prerequisites
 
@@ -403,4 +403,5 @@ Project Link: [https://github.com/alonsojj/BellyCountBot](https://github.com/alo
 [Groq-url]: https://groq.com/
 [WhatsApp-badge]: https://img.shields.io/badge/WhatsApp-25D366?logo=whatsapp&logoColor=white&style=for-the-badge
 [WhatsApp-url]: https://www.whatsapp.com/
+
 
