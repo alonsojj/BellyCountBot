@@ -2,6 +2,11 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+# Importações de DB
+from app.db.base import SessionLocal
+from app.services.db_service import get_client, create_or_update_client
+from app.models.client_model import Client
+
 from app.models.enums import ConversationState, AccountingService
 from app.models.user_session import UserSession
 from app.services.ia_service import IaService
@@ -61,10 +66,41 @@ class ChatbotService:
         }
 
     def _get_session(self, user_id: str) -> UserSession:
-        if user_id not in self.user_sessions:
-            self.user_sessions[user_id] = UserSession(user_id)
-            logging.info(f"Nova sessão criada para o usuário: {user_id}")
-        return self.user_sessions[user_id]
+        # 1. Procura a sessão na memória (cache)
+        if user_id in self.user_sessions:
+            return self.user_sessions[user_id]
+
+        # 2. Se não estiver na memória, busca no banco de dados
+        db = SessionLocal()
+        try:
+            client_from_db = get_client(db, user_id)
+            
+            # Cria o objeto de sessão base
+            session = UserSession(user_id)
+
+            if client_from_db:
+                # 2a. Se o cliente existe no DB, carrega seus dados para a sessão
+                logging.info(f"Sessão recuperada do banco de dados para o usuário: {user_id}")
+                session.client = Client(
+                    user_id=client_from_db.user_id,
+                    name=client_from_db.name,
+                    email=client_from_db.email,
+                    phone=client_from_db.phone,
+                    document_type=client_from_db.document_type,
+                    document_number=client_from_db.document_number,
+                    service=client_from_db.service,
+                )
+            else:
+                # 2b. Se não existe, cria um novo cliente no DB
+                logging.info(f"Novo cliente criado no banco de dados para o usuário: {user_id}")
+                # O objeto session.client já é um dataclass Client vazio, pronto para ser salvo.
+                create_or_update_client(db, session.client)
+
+            # Armazena a sessão em memória para acesso rápido nas próximas mensagens
+            self.user_sessions[user_id] = session
+            return session
+        finally:
+            db.close()
 
     def get_session_state(self, user_id: str) -> ConversationState:
         session = self._get_session(user_id)
@@ -103,6 +139,14 @@ class ChatbotService:
 
         if response:
             session.chat_history.append({"role": "assistant", "content": response})
+        
+        # Salva o estado atualizado do cliente no banco de dados
+        db = SessionLocal()
+        try:
+            create_or_update_client(db, session.client)
+        finally:
+            db.close()
+
         return response
 
     def _get_service_type(self, service: AccountingService) -> str:
