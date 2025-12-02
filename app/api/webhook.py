@@ -1,8 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import ValidationError
-from app.models import WebhookPayload
-from app.models.enums import ConversationState
+from app.models import WebhookPayload, ConversationState
 from app.services.chatbot import ChatbotService
 from app.services import WhatsAppService, AdminService
 from app.core.dependencies import (
@@ -28,7 +27,7 @@ async def receive_webhook(
     except ValidationError as e:
         logging.error(f"ValidationError in webhook payload: {e}")
         raise HTTPException(status_code=422, detail=e.errors())
-
+    print(acces_control_service.is_allowed(payload.user_id), payload.user_id)
     if payload.is_group or not acces_control_service.is_allowed(payload.user_id):
         return {"status": "ok"}
 

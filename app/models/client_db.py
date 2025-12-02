@@ -6,10 +6,14 @@ from app.models.enums import DocumentType
 class ClientDB(Base):
     __tablename__ = "clients"
 
-    user_id = Column(String, primary_key=True, index=True)
-    name = Column(String, nullable=True)
+    document_number = Column(
+        String, primary_key=True, index=True, unique=True, nullable=False
+    )
     document_type = Column(Enum(DocumentType), nullable=True)
-    document_number = Column(String, nullable=True, unique=True)
+    name = Column(String, nullable=True)
+    phone = Column(String, index=True)
 
     def __repr__(self):
-        return f"<ClientDB(user_id='{self.user_id}', name='{self.name}')>"
+        return (
+            f"<ClientDB(document_number='{self.document_number}', name='{self.name}')>"
+        )

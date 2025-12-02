@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
 from app.models.enums import ConversationState
 from app.services.chatbot.handlers.base import StateHandler
+from app.db.base import SessionLocal
+from app.services.db_service import create_or_update_client
 
 if TYPE_CHECKING:
     from app.services.chatbot.chatbot_service import ChatbotService, UserSession
@@ -13,7 +15,11 @@ class PfNameHandler(StateHandler):
         self, service: "ChatbotService", session: "UserSession", user_message: str
     ) -> str:
         session.client.name = user_message.strip()
-
+        db = SessionLocal()
+        try:
+            create_or_update_client(db, session.client)
+        finally:
+            db.close()
         if session.client.service:
             return await service._redirect_to_service_flow(
                 session, session.client.service.value

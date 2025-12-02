@@ -60,24 +60,25 @@ class AdminService:
                 raise ValueError(f"Invalid number specified: {user_id}")
         self._save_list(target_list, filename)
 
-    def _remove_from_list(self, user_id: str, target_list: set, filename: str):
-        if user_id in target_list:
-            target_list.remove(user_id)
-            self._save_list(target_list, filename)
-        else:
-            raise ValueError("Numero não existente na lista")
+    def _remove_from_list(self, user_ids: list[str], target_list: set, filename: str):
+        for user_id in user_ids:
+            if user_id in target_list:
+                target_list.remove(user_id)
+                self._save_list(target_list, filename)
+            else:
+                raise ValueError("Numero não existente na lista")
 
     def add_to_whitelist(self, user_ids: list[str]):
         self._add_to_list(user_ids, self.whitelist, "whitelist.txt")
 
-    def remove_from_whitelist(self, user_id: str):
-        self._remove_from_list(user_id, self.whitelist, "whitelist.txt")
+    def remove_from_whitelist(self, user_ids: list[str]):
+        self._remove_from_list(user_ids, self.whitelist, "whitelist.txt")
 
     def add_to_blacklist(self, user_ids: list[str]):
         self._add_to_list(user_ids, self.blacklist, "blacklist.txt")
 
-    def remove_from_blacklist(self, user_id: str):
-        self._remove_from_list(user_id, self.blacklist, "blacklist.txt")
+    def remove_from_blacklist(self, user_ids: list[str]):
+        self._remove_from_list(user_ids, self.blacklist, "blacklist.txt")
 
     def get_whitelist(self):
         return self.whitelist

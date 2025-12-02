@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 from app.models.enums import ConversationState, DocumentType
 from app.services.document_service import validar_cpf
 from app.services.chatbot.handlers.base import StateHandler
+from app.db.base import SessionLocal
+from app.services.db_service import create_or_update_client
 
 if TYPE_CHECKING:
     from app.services.chatbot.chatbot_service import ChatbotService, UserSession
@@ -30,6 +32,7 @@ class CpfCnpjHandler(StateHandler):
     def get_entry_message(
         self, service: "ChatbotService", session: "UserSession"
     ) -> str:
+        session.client.name = None
         return "Ok, vamos lá. Por favor, me informe seu CPF (11 números) ou CNPJ (14 números) para eu localizar seu cadastro.\n\n*(Digite 'Voltar' para o menu principal)*"
 
     def handle_back(
@@ -44,7 +47,18 @@ class CpfCnpjHandler(StateHandler):
             return "CPF inválido. Por favor, verifique os números e tente novamente.\n\n*(Digite 'Voltar' para o menu principal)*"
 
         session.client.document_type = DocumentType.CPF
-        session.client.document_number = doc
+        session.client.document_number = doc # Ensure document_number is set right before DB call
+
+        db = SessionLocal()
+        try:
+            updated_db_client = create_or_update_client(db, session.client)
+            # Update session.client with data from the database
+            session.client.document_type = updated_db_client.document_type
+            session.client.document_number = updated_db_client.document_number
+            session.client.name = updated_db_client.name
+            session.client.phone = updated_db_client.phone
+        finally:
+            db.close()
 
         if (
             session.client.service
@@ -56,9 +70,16 @@ class CpfCnpjHandler(StateHandler):
                 "*(Digite 'Voltar' para o menu principal)*"
             )
 
-        service._set_state(session, ConversationState.AGUARDANDO_NOME_PF)
-        new_handler = service.state_handlers[ConversationState.AGUARDANDO_NOME_PF]
-        return new_handler.get_entry_message(service, session)
+        if session.client.name and session.client.document_type == DocumentType.CPF:
+            service._set_state(session, ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF)
+            new_handler = service.state_handlers[
+                ConversationState.AGUARDANDO_ESCOLHA_SERVICO_PF
+            ]
+            return new_handler.get_entry_message(service, session)
+        else:
+            service._set_state(session, ConversationState.AGUARDANDO_NOME_PF)
+            new_handler = service.state_handlers[ConversationState.AGUARDANDO_NOME_PF]
+            return new_handler.get_entry_message(service, session)
 
     async def _handle_cnpj(
         self, service: "ChatbotService", session: "UserSession", doc: str
@@ -69,6 +90,12 @@ class CpfCnpjHandler(StateHandler):
 
         session.client.document_type = DocumentType.CNPJ
         session.client.document_number = doc
+
+        db = SessionLocal()
+        try:
+            create_or_update_client(db, session.client)
+        finally:
+            db.close()
 
         company_name = dados.razao_social or dados.nome_fantasia
         if company_name:

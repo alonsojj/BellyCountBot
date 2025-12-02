@@ -65,37 +65,13 @@ class ChatbotService:
             ConversationState.HUMAN_ATTENDING: HumanAttendanceHandler(),
         }
 
-    def _get_session(self, user_id: str) -> UserSession:
-        if user_id in self.user_sessions:
-            return self.user_sessions[user_id]
-
-        db = SessionLocal()
-        try:
-            client_from_db = get_client(db, user_id)
-
-            session = UserSession(user_id)
-
-            if client_from_db:
-                logging.info(
-                    f"Sessão recuperada do banco de dados para o usuário: {user_id}"
-                )
-                session.client = Client(
-                    user_id=client_from_db.user_id,
-                    name=client_from_db.name,
-                    document_type=client_from_db.document_type,
-                    document_number=client_from_db.document_number,
-                )
-            else:
-                logging.info(
-                    f"Novo cliente criado no banco de dados para o usuário: {user_id}"
-                )
-
-                create_or_update_client(db, session.client)
-
-            self.user_sessions[user_id] = session
-            return session
-        finally:
-            db.close()
+    def _get_session(
+        self, user_id: str, whatsapp_instance: Optional[str] = None
+    ) -> UserSession:
+        if user_id not in self.user_sessions:
+            self.user_sessions[user_id] = UserSession(user_id)
+            logging.info(f"Nova sessão criada para o usuário: {user_id}")
+        return self.user_sessions[user_id]
 
     def get_session_state(self, user_id: str) -> ConversationState:
         session = self._get_session(user_id)
@@ -109,7 +85,7 @@ class ChatbotService:
     async def process_message(
         self, user_id: str, user_message: str, whatsapp_instance: Optional[str] = None
     ) -> str:
-        session = self._get_session(user_id)
+        session = self._get_session(user_id, whatsapp_instance)
         session.last_activity_time = datetime.now()
         if whatsapp_instance:
             session.whatsapp_instance = whatsapp_instance
@@ -134,12 +110,6 @@ class ChatbotService:
 
         if response:
             session.chat_history.append({"role": "assistant", "content": response})
-
-        db = SessionLocal()
-        try:
-            create_or_update_client(db, session.client)
-        finally:
-            db.close()
 
         return response
 

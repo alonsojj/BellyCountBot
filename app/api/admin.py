@@ -32,10 +32,10 @@ async def add_to_whitelist(
 
 @router.delete("/whitelist")
 def remove_from_whitelist(
-    user_id: UserId, service: AdminService = Depends(get_admin_service)
+    users: UserIds, service: AdminService = Depends(get_admin_service)
 ):
     try:
-        service.remove_from_whitelist(user_id.user_id)
+        service.remove_from_whitelist(users.user_ids)
         return {"status": "ok", "message": "User removed from whitelist"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -59,10 +59,10 @@ async def add_to_blacklist(
 
 @router.delete("/blacklist")
 def remove_from_blacklist(
-    user_id: UserId, service: AdminService = Depends(get_admin_service)
+    users: UserIds, service: AdminService = Depends(get_admin_service)
 ):
     try:
-        service.remove_from_blacklist(user_id.user_id)
+        service.remove_from_blacklist(users.user_ids)
         return {"message": "User removed from blacklist"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -80,6 +80,19 @@ def set_mode(mode: SetMode, service: AdminService = Depends(get_admin_service)):
         return {"message": f"Mode set to {mode.mode.name}"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/sessions", response_model=dict)
+def get_all_sessions(chatbot_service: ChatbotService = Depends(get_chatbot_service)):
+    """
+    Exposes all active chatbot sessions.
+    """
+
+    serializable_sessions = {
+        user_id: session.to_dict()
+        for user_id, session in chatbot_service.user_sessions.items()
+    }
+    return serializable_sessions
 
 
 @router.delete("/session/{user_id}")

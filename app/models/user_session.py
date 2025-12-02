@@ -23,3 +23,16 @@ class UserSession:
         self.previous_state = ConversationState.GREETING
         self.chat_history = []
         self.ia_suggestion = None
+
+    def to_dict(self):
+        """Converte a sessão do usuário para um dicionário serializável."""
+        return {
+            "user_id": self.client.user_id,
+            "client": self.client.to_dict(),  # Usa o to_dict() do Client
+            "state": self.state.value,
+            "previous_state": self.previous_state.value,
+            "chat_history": self.chat_history,
+            "ia_suggestion": self.ia_suggestion,
+            "last_activity_time": self.last_activity_time.isoformat(),
+            "whatsapp_instance": self.whatsapp_instance,
+        }
